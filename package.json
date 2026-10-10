@@ -1,0 +1,41 @@
+{
+  "name": "biggie-house",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "tsx server/index.ts",
+    "build": "tsc --noEmit && tsc -p tsconfig.server.json && vite build",
+    "lint": "tsc --noEmit",
+    "typecheck:server": "tsc -p tsconfig.server.json",
+    "preview": "vite preview",
+    "deploy": "npm run build && wrangler deploy",
+    "test": "tsx scripts/engine-test.ts",
+    "test:server": "tsx server/houseManager.test.ts && tsx server/gameState.test.ts && tsx server/persist.test.ts && tsx server/accounts.test.ts && tsx server/server.test.ts && tsx server/sharedState.test.ts && tsx server/auth.test.ts && tsx server/onboarding.test.ts",
+    "test:worker": "tsx worker/ws-verify.test.ts",
+    "test:smoke": "node scripts/smoke-test.mjs"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "three": "^0.186.1",
+    "ws": "^8.22.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.19.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "puppeteer-core": "^25.13.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
+    "wrangler": "^4.149.0"
+  }
+}
