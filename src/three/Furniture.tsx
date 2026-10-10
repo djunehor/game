@@ -18,6 +18,27 @@ export function LoungeFurniture() {
         <meshStandardMaterial color="#4a5568" roughness={0.95} />
       </mesh>
 
+      {/* Truth or Dare Bottle & Cards on Area Rug */}
+      <group position={[0, 0.08, -1.8]}>
+        {/* Glass Bottle lying horizontally */}
+        <mesh rotation={[0, 0.6, Math.PI / 2]} position={[0, 0.08, 0]} castShadow>
+          <cylinderGeometry args={[0.07, 0.12, 0.55, 16]} />
+          <meshStandardMaterial color="#10b981" transparent opacity={0.75} roughness={0.1} metalness={0.2} />
+        </mesh>
+        {/* Bottle neck */}
+        <mesh rotation={[0, 0.6, Math.PI / 2]} position={[0.22, 0.08, 0.13]}>
+          <cylinderGeometry args={[0.04, 0.04, 0.22, 12]} />
+          <meshStandardMaterial color="#059669" transparent opacity={0.7} />
+        </mesh>
+        {/* Truth & Dare Game Cards scattered in a circle */}
+        {[-0.4, 0, 0.4].map((dx, i) => (
+          <mesh key={`card-${i}`} position={[dx, 0.02, 0.35 * (i % 2 === 0 ? 1 : -1)]} rotation={[-Math.PI / 2, 0, dx * 1.2]}>
+            <planeGeometry args={[0.2, 0.3]} />
+            <meshStandardMaterial color={i === 0 ? "#ef4444" : i === 1 ? "#3b82f6" : "#f59e0b"} />
+          </mesh>
+        ))}
+      </group>
+
       {/* Main Sectional Sofa - Left Wing */}
       <group position={[-4, 0, 0]}>
         {/* Base */}
@@ -103,18 +124,34 @@ export function LoungeFurniture() {
           <meshStandardMaterial color="#78350f" roughness={0.4} />
         </mesh>
         {/* Ludo Game Board on Table */}
-        <mesh position={[-0.5, 0.48, 0]} rotation={[-Math.PI / 2, 0, 0.2]}>
-          <planeGeometry args={[1.1, 1.1]} />
+        <mesh position={[-0.8, 0.48, 0]} rotation={[-Math.PI / 2, 0, 0.2]}>
+          <planeGeometry args={[1.0, 1.0]} />
           <meshStandardMaterial color="#fef08a" roughness={0.3} />
         </mesh>
+        {/* Ayo Olopon Carved Wooden Mancala Board on Table */}
+        <group position={[0.8, 0.48, -0.1]} rotation={[0, -0.1, 0]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[1.4, 0.08, 0.5]} />
+            <meshStandardMaterial color="#451a03" roughness={0.5} />
+          </mesh>
+          {/* Carved 12 Pit Depressions */}
+          {[-0.5, -0.3, -0.1, 0.1, 0.3, 0.5].map((px) => (
+            <group key={`ayo-pit-${px}`}>
+              <mesh position={[px, 0.045, -0.12]}>
+                <cylinderGeometry args={[0.07, 0.07, 0.02, 12]} />
+                <meshStandardMaterial color="#291102" />
+              </mesh>
+              <mesh position={[px, 0.045, 0.12]}>
+                <cylinderGeometry args={[0.07, 0.07, 0.02, 12]} />
+                <meshStandardMaterial color="#291102" />
+              </mesh>
+            </group>
+          ))}
+        </group>
         {/* Drinks / Glasses */}
-        <mesh position={[0.9, 0.52, 0.3]}>
+        <mesh position={[0.2, 0.52, 0.5]}>
           <cylinderGeometry args={[0.08, 0.06, 0.16]} />
           <meshStandardMaterial color="#60a5fa" transparent opacity={0.7} />
-        </mesh>
-        <mesh position={[1.2, 0.52, 0.2]}>
-          <cylinderGeometry args={[0.08, 0.06, 0.16]} />
-          <meshStandardMaterial color="#f87171" transparent opacity={0.7} />
         </mesh>
       </group>
 
@@ -550,6 +587,43 @@ export function ArenaFurniture() {
         <mesh position={[1.3, 0.2, 0]} castShadow>
           <boxGeometry args={[1.1, 0.4, 1.1]} />
           <meshStandardMaterial color="#b45309" metalness={0.6} />
+        </mesh>
+      </group>
+
+      {/* Innoson Brand SUV Display Prop (The Legendary Car Task) */}
+      <group position={[-3.0, 0, -1.0]} rotation={[0, 0.2, 0]}>
+        {/* Car Chassis */}
+        <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
+          <boxGeometry args={[1.7, 0.5, 3.2]} />
+          <meshStandardMaterial color="#0284c7" metalness={0.8} roughness={0.2} />
+        </mesh>
+        {/* Cabin / Windows */}
+        <mesh position={[0, 0.85, -0.2]}>
+          <boxGeometry args={[1.4, 0.45, 1.8]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.1} metalness={0.9} />
+        </mesh>
+        {/* Windshield angle glass */}
+        <mesh position={[0, 0.85, 0.8]} rotation={[-0.4, 0, 0]}>
+          <boxGeometry args={[1.35, 0.4, 0.1]} />
+          <meshStandardMaterial color="#38bdf8" transparent opacity={0.6} />
+        </mesh>
+        {/* 4 Wheels */}
+        {[-0.9, 0.9].map((wx, i) =>
+          [-1.0, 1.0].map((wz, j) => (
+            <mesh key={`wheel-${i}-${j}`} position={[wx, 0.22, wz]} rotation={[0, 0, Math.PI / 2]}>
+              <cylinderGeometry args={[0.22, 0.22, 0.18, 16]} />
+              <meshStandardMaterial color="#18181b" roughness={0.9} />
+            </mesh>
+          ))
+        )}
+        {/* Headlights */}
+        <mesh position={[-0.6, 0.5, 1.62]}>
+          <boxGeometry args={[0.3, 0.12, 0.05]} />
+          <meshBasicMaterial color="#fef08a" />
+        </mesh>
+        <mesh position={[0.6, 0.5, 1.62]}>
+          <boxGeometry args={[0.3, 0.12, 0.05]} />
+          <meshBasicMaterial color="#fef08a" />
         </mesh>
       </group>
     </group>

@@ -1,10 +1,10 @@
 import { Html } from '@react-three/drei';
 import { ROOM_DEFS, WALLS } from './rooms';
-import { setTarget } from './input';
 import { LivingNPC } from './LivingNPC';
 import { RemotePlayer } from './RemotePlayer';
 import { Lighting } from './Lighting';
 import { HohChallenge } from './HohChallenge';
+import { StudioTruss } from './StudioTruss';
 import {
   LoungeFurniture,
   KitchenFurniture,
@@ -14,12 +14,20 @@ import {
   ArenaFurniture,
   BedroomFurniture,
 } from './Furniture';
+import { InteractiveObjects } from './InteractiveObjects';
+import { TourSpotlight } from './TourSpotlight';
 import { useGame } from '../store';
 import type { Housemate } from '../types';
 
 const NO_RAY: () => null = () => null;
 
-export function Scene({ onTalk }: { onTalk: (h: Housemate) => void }) {
+export function Scene({
+  onTalk,
+  onOpenDiaryRoom,
+}: {
+  onTalk: (h: Housemate) => void;
+  onOpenDiaryRoom: () => void;
+}) {
   const state = useGame((s) => s.state);
   const active = (state?.housemates ?? []).filter((h) => h.status === 'active');
   const aiNpcs = active.filter((h) => !h.isHuman);
@@ -29,20 +37,26 @@ export function Scene({ onTalk }: { onTalk: (h: Housemate) => void }) {
     <>
       {/* Dynamic studio lighting (day / night / party / eviction) */}
       <Lighting />
-      <fog attach="fog" args={['#bcd9ec', 40, 150]} />
+      <fog attach="fog" args={['#bcd9ec', 60, 200]} />
 
-      {/* Main Ground Floor / Yard */}
+      {/* Exterior Landscape (Outside Compound Walls) */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0, 0]}
+        position={[0, -0.02, 0]}
         receiveShadow
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          setTarget(e.point.x, e.point.z);
-        }}
       >
-        <planeGeometry args={[220, 220]} />
+        <planeGeometry args={[260, 260]} />
         <meshStandardMaterial color="#5ea853" roughness={0.9} />
+      </mesh>
+
+      {/* Enclosed Compound Courtyard Ground Base Slab */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[5, 0.01, 4]}
+        receiveShadow
+      >
+        <planeGeometry args={[57, 45]} />
+        <meshStandardMaterial color="#e2e8f0" roughness={0.8} />
       </mesh>
 
       {/* Room Floor Base Slabs with Polished Colors */}
@@ -75,19 +89,37 @@ export function Scene({ onTalk }: { onTalk: (h: Housemate) => void }) {
         </Html>
       ))}
 
-      {/* Outer Studio Perimeter Walls */}
+      {/* Soundstage & Compound Walls */}
       {WALLS.map((w, i) => (
-        <mesh
-          key={`wall-${i}`}
-          position={[w.center[0], w.height / 2, w.center[1]]}
-          castShadow
-          receiveShadow
-          raycast={NO_RAY}
-        >
-          <boxGeometry args={[w.size[0], w.height, w.size[1]]} />
-          <meshStandardMaterial color="#cbd5e1" roughness={0.8} />
-        </mesh>
+        <group key={`wall-${i}`}>
+          <mesh
+            position={[w.center[0], w.height / 2, w.center[1]]}
+            castShadow
+            receiveShadow
+            raycast={NO_RAY}
+          >
+            <boxGeometry args={[w.size[0], w.height, w.size[1]]} />
+            <meshStandardMaterial
+              color={w.color ?? (w.kind === 'compound' ? '#cbd5e1' : '#e2e8f0')}
+              roughness={w.kind === 'interior' ? 0.6 : 0.8}
+            />
+          </mesh>
+          {/* Decorative Coping for Outer Compound Walls */}
+          {w.kind === 'compound' && (
+            <mesh
+              position={[w.center[0], w.height + 0.1, w.center[1]]}
+              castShadow
+              raycast={NO_RAY}
+            >
+              <boxGeometry args={[w.size[0] + 0.2, 0.2, w.size[1] + 0.2]} />
+              <meshStandardMaterial color="#94a3b8" roughness={0.7} />
+            </mesh>
+          )}
+        </group>
       ))}
+
+      {/* Overhead TV Lighting Truss & Doorway Lintels */}
+      <StudioTruss />
 
       {/* High-Fidelity Room Sets & Custom Furniture */}
       <LoungeFurniture />
@@ -97,6 +129,9 @@ export function Scene({ onTalk }: { onTalk: (h: Housemate) => void }) {
       <GardenFurniture />
       <ArenaFurniture />
       <BedroomFurniture />
+
+      {/* 3D Clickable Objects and Stations */}
+      <InteractiveObjects onOpenDiaryRoom={onOpenDiaryRoom} />
 
       {/* Autonomous Animated Living AI Housemates */}
       {aiNpcs.map((h, i) => (
@@ -110,6 +145,9 @@ export function Scene({ onTalk }: { onTalk: (h: Housemate) => void }) {
 
       {/* 3D Head-of-House arena challenge (Monday) */}
       <HohChallenge />
+
+      {/* 3D Guided Tour Room Spotlight Beacon */}
+      <TourSpotlight />
     </>
   );
 }

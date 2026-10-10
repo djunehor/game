@@ -7,6 +7,7 @@ import { roomAt, WORLD_BOUNDS, PLAYER_SPAWN, collideWalls } from './rooms';
 import { useGame } from '../store';
 import { sound } from '../engine/sound';
 import { multiplayer } from '../engine/multiplayer';
+import { useTour, TOUR_STOPS } from './tourStore';
 
 const SPEED = 9;
 const CAM_DIST = 16;
@@ -17,11 +18,14 @@ export function Player() {
   const pos = useRef(new THREE.Vector3(PLAYER_SPAWN[0], 0, PLAYER_SPAWN[1]));
   const yaw = useRef(0);
   const camYaw = useRef(0);
+  const camLookAt = useRef(new THREE.Vector3(PLAYER_SPAWN[0], 1.2, PLAYER_SPAWN[1]));
   const lastRoom = useRef(roomAt(PLAYER_SPAWN[0], PLAYER_SPAWN[1]));
   const camera = useThree((s) => s.camera);
 
   const [isWalking, setIsWalking] = useState(false);
   const isWalkingRef = useRef(false);
+  const stuckFrames = useRef(0);
+  const targetStartTime = useRef(0);
 
   useEffect(() => {
     attachInput();
@@ -48,23 +52,53 @@ export function Player() {
     const totalDz = dz + joyDz;
     const totalDx = dx + joyDx;
 
+    // Manual input cancels click-to-move immediately
+    if (totalDz !== 0 || totalDx !== 0) {
+      if (input.target) {
+        console.log('[Player] Manual movement cancelled active target');
+      }
+      input.target = null;
+      stuckFrames.current = 0;
+      targetStartTime.current = 0;
+    }
+
     let move = new THREE.Vector3();
     if (input.target) {
-      const to = new THREE.Vector3(input.target.x, 0, input.target.z);
-      move = to.clone().sub(pos.current);
-      move.y = 0;
-      const len = move.length();
-      if (len < 0.5) {
+      if (targetStartTime.current === 0) {
+        targetStartTime.current = performance.now();
+      }
+      // Safety timeout: target cannot last more than 2.5 seconds
+      if (performance.now() - targetStartTime.current > 2500) {
+        console.log('[Player] Target movement timed out - stopping');
         input.target = null;
-        move.set(0, 0, 0);
+        targetStartTime.current = 0;
+        stuckFrames.current = 0;
       } else {
-        move.normalize();
+        const to = new THREE.Vector3(input.target.x, 0, input.target.z);
+        move = to.clone().sub(pos.current);
+        move.y = 0;
+        const len = move.length();
+        if (len < 0.8) {
+          console.log('[Player] Target reached within 0.8 units');
+          input.target = null;
+          move.set(0, 0, 0);
+          stuckFrames.current = 0;
+          targetStartTime.current = 0;
+        } else {
+          move.normalize();
+        }
       }
     } else {
+      targetStartTime.current = 0;
       move = fwd.multiplyScalar(totalDz).add(right.multiplyScalar(totalDx));
       if (move.lengthSq() > 1) move.normalize();
       const sprint = keys.ShiftLeft || keys.ShiftRight ? 1.6 : 1;
       move.multiplyScalar(sprint);
+    }
+
+    // If tour is active, keep avatar idle while the camera flies through rooms
+    if (useTour.getState().isActive) {
+      move.set(0, 0, 0);
     }
 
     const moving = move.lengthSq() > 0.001;
@@ -72,6 +106,9 @@ export function Player() {
       isWalkingRef.current = moving;
       setIsWalking(moving);
     }
+
+    const prevX = pos.current.x;
+    const prevZ = pos.current.z;
 
     if (moving) {
       pos.current.addScaledVector(move, SPEED * dt);
@@ -84,6 +121,26 @@ export function Player() {
     pos.current.z = Math.max(WORLD_BOUNDS.minZ, Math.min(WORLD_BOUNDS.maxZ, pos.current.z));
     collideWalls(pos.current);
 
+    // Stuck detection: if target is active but walls block forward movement, cancel target
+    if (input.target) {
+      const actualMoved = Math.hypot(pos.current.x - prevX, pos.current.z - prevZ);
+      if (actualMoved < SPEED * dt * 0.3) {
+        stuckFrames.current += 1;
+        if (stuckFrames.current > 5) {
+          console.log('[Player] Stuck against wall detected - cancelling target');
+          input.target = null;
+          stuckFrames.current = 0;
+          targetStartTime.current = 0;
+          setIsWalking(false);
+          isWalkingRef.current = false;
+        }
+      } else {
+        stuckFrames.current = 0;
+      }
+    } else {
+      stuckFrames.current = 0;
+    }
+
     // Sync real-time position for NPC proximity detection
     playerWorldPos.x = pos.current.x;
     playerWorldPos.z = pos.current.z;
@@ -93,13 +150,28 @@ export function Player() {
       group.current.rotation.y = yaw.current;
     }
 
-    // Camera follow
-    camera.position.set(
-      pos.current.x + Math.sin(camYaw.current) * CAM_DIST,
-      CAM_HEIGHT,
-      pos.current.z + Math.cos(camYaw.current) * CAM_DIST,
-    );
-    camera.lookAt(pos.current.x, 1.2, pos.current.z);
+    const isTourActive = useTour.getState().isActive;
+    const tourIndex = useTour.getState().currentStopIndex;
+    const tourStop = TOUR_STOPS[tourIndex] ?? TOUR_STOPS[0];
+
+    // Camera follow (cinematic fly-through during guided tour or smooth follow during gameplay)
+    if (isTourActive) {
+      const targetCam = new THREE.Vector3(...tourStop.cameraPos);
+      const targetLook = new THREE.Vector3(...tourStop.lookAt);
+      camera.position.lerp(targetCam, Math.min(1, 4.5 * dt));
+      camLookAt.current.lerp(targetLook, Math.min(1, 4.5 * dt));
+      camera.lookAt(camLookAt.current);
+    } else {
+      const normalCam = new THREE.Vector3(
+        pos.current.x + Math.sin(camYaw.current) * CAM_DIST,
+        CAM_HEIGHT,
+        pos.current.z + Math.cos(camYaw.current) * CAM_DIST,
+      );
+      const normalLook = new THREE.Vector3(pos.current.x, 1.2, pos.current.z);
+      camera.position.lerp(normalCam, Math.min(1, 6.5 * dt));
+      camLookAt.current.lerp(normalLook, Math.min(1, 6.5 * dt));
+      camera.lookAt(camLookAt.current);
+    }
 
     // Room detection → keep the game store in sync
     const room = roomAt(pos.current.x, pos.current.z);

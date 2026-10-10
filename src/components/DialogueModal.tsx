@@ -1,18 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Housemate } from '../types';
 import { DIALOGUE_OPTIONS, DialogueOption } from '../data/dialogue';
 import { useGame } from '../store';
 import { Modal, ModalHeader } from './Modal';
 import { sound } from '../engine/sound';
+import { resetInput } from '../three/input';
 
 export function DialogueModal({
   housemate,
   onClose,
+  player: propPlayer,
 }: {
   housemate: Housemate;
   onClose: () => void;
+  player?: Housemate;
 }) {
-  const player = useGame((s) => s.state?.player);
+  useEffect(() => {
+    resetInput();
+  }, []);
+
+  const storePlayer = useGame((s) => s.state?.player);
+  const player = propPlayer ?? storePlayer;
   const interact = useGame((s) => s.interactWithHousemate);
 
   const [result, setResult] = useState<{

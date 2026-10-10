@@ -1,12 +1,20 @@
 import { useState } from 'react';
-import type { GameState } from '../types';
+import type { GameState, Housemate } from '../types';
 import { TwitterFeed } from './TwitterFeed';
 import { HousemateList } from './HousemateList';
 import { EventLog } from './EventLog';
 
 type Tab = 'twitter' | 'housemates' | 'log';
 
-export function SocialPanel({ state, onClose }: { state: GameState; onClose: () => void }) {
+export function SocialPanel({
+  state,
+  onClose,
+  onTalk,
+}: {
+  state: GameState;
+  onClose: () => void;
+  onTalk?: (h: Housemate) => void;
+}) {
   const [tab, setTab] = useState<Tab>('twitter');
 
   return (
@@ -44,7 +52,7 @@ export function SocialPanel({ state, onClose }: { state: GameState; onClose: () 
 
       <div className="scroll-thin flex-1 space-y-2 overflow-y-auto p-3">
         {tab === 'twitter' && <TwitterFeed state={state} />}
-        {tab === 'housemates' && <HousemateList state={state} />}
+        {tab === 'housemates' && <HousemateList state={state} onTalk={onTalk} />}
         {tab === 'log' && <EventLog state={state} />}
       </div>
     </div>

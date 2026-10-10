@@ -94,7 +94,27 @@ export function Character({
   });
 
   return (
-    <group position={position} rotation={[0, yaw, 0]}>
+    <group
+      position={position}
+      rotation={[0, yaw, 0]}
+      onClick={(e) => {
+        if (!isPlayer && onTalk) {
+          e.stopPropagation();
+          onTalk();
+        }
+      }}
+      onPointerOver={(e) => {
+        if (!isPlayer) {
+          e.stopPropagation();
+          document.body.style.cursor = 'pointer';
+        }
+      }}
+      onPointerOut={() => {
+        if (!isPlayer) {
+          document.body.style.cursor = 'auto';
+        }
+      }}
+    >
       {/* Root animated body container */}
       <group ref={bodyRef}>
         {/* Torso / Clothes */}
@@ -183,20 +203,31 @@ export function Character({
           {/* Talk Prompt if nearby */}
           {isNearby && !isPlayer && (
             <button
-              onClick={onTalk}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTalk?.();
+              }}
               className="pointer-events-auto mb-1 flex items-center gap-1 rounded-full bg-bbn px-3 py-1 text-[11px] font-black text-white shadow-lg transition hover:scale-105 active:scale-95 animate-pulse-dot"
             >
               <span>💬 Talk</span>
-              <span className="rounded bg-white/20 px-1 py-0.2 text-[9px] font-bold">E</span>
+              <span className="rounded bg-white/20 px-1 py-0.5 text-[9px] font-bold">F</span>
             </button>
           )}
 
           {/* Badge */}
-          <div className="flex items-center gap-1">
+          <div
+            onClick={(e) => {
+              if (!isPlayer && onTalk) {
+                e.stopPropagation();
+                onTalk();
+              }
+            }}
+            className={`flex items-center gap-1 ${!isPlayer ? 'pointer-events-auto cursor-pointer hover:scale-105 transition-transform' : ''}`}
+          >
             <span className="text-base drop-shadow">{emoji}</span>
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold shadow-md ${
-                isPlayer ? 'bg-bbn text-white ring-2 ring-white/50' : 'bg-white/95 text-ink'
+                isPlayer ? 'bg-bbn text-white ring-2 ring-white/50' : 'bg-white/95 text-ink hover:bg-gold/20'
               }`}
             >
               {name}

@@ -11,7 +11,7 @@
     "typecheck:server": "tsc -p tsconfig.server.json",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
-    "test": "tsx scripts/engine-test.ts",
+    "test": "tsx scripts/engine-test.ts && tsx scripts/test-interactions-logic.ts && tsx scripts/test-interactions-ui.tsx && tsx scripts/test-combinations.ts",
     "test:server": "tsx server/houseManager.test.ts && tsx server/gameState.test.ts && tsx server/persist.test.ts && tsx server/accounts.test.ts && tsx server/server.test.ts && tsx server/sharedState.test.ts && tsx server/auth.test.ts && tsx server/onboarding.test.ts",
     "test:worker": "tsx worker/ws-verify.test.ts",
     "test:smoke": "node scripts/smoke-test.mjs"
@@ -26,11 +26,14 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@rolldown/binding-darwin-arm64": "^1.2.13",
+    "@tailwindcss/oxide-darwin-arm64": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.19.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "lightningcss-darwin-arm64": "^1.33.0",
     "puppeteer-core": "^25.13.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",

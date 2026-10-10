@@ -53,19 +53,69 @@ export interface WallDef {
   center: [number, number]; // x, z
   size: [number, number]; // widthX, depthZ
   height: number;
+  color?: string;
+  kind?: 'compound' | 'interior' | 'perimeter';
 }
 
 export const WALLS: WallDef[] = [
-  // North wall (front), door gap x ∈ [-1.5, 1.5]
-  { center: [-12.25, -18], size: [21.5, 1], height: 4 },
-  { center: [5.25, -18], size: [7.5, 1], height: 4 },
-  // South wall
-  { center: [-7, 24], size: [32, 1], height: 4 },
-  // West wall
-  { center: [-23, 3], size: [1, 42], height: 4 },
-  // East wall (to garden), doorway gap z ∈ [0, 3]
-  { center: [9, -9], size: [1, 18], height: 4 },
-  { center: [9, 13.5], size: [1, 21], height: 4 },
+  // ==========================================
+  // 1. TALL OUTER COMPOUND SECURITY WALLS
+  // Fully encloses the studio estate & garden courtyard
+  // ==========================================
+  // North compound wall (Z = -18.5, full width across house & garden)
+  { center: [5, -18.5], size: [58, 1], height: 5.5, color: '#cbd5e1', kind: 'compound' },
+  // South compound wall (Z = 26.5, full width across house & garden)
+  { center: [5, 26.5], size: [58, 1], height: 5.5, color: '#cbd5e1', kind: 'compound' },
+  // West compound perimeter wall (X = -23.5)
+  { center: [-23.5, 4], size: [1, 46], height: 5.5, color: '#cbd5e1', kind: 'compound' },
+  // East compound perimeter wall behind garden (X = 33.5)
+  { center: [33.5, 4], size: [1, 46], height: 5.5, color: '#cbd5e1', kind: 'compound' },
+
+  // ==========================================
+  // 2. SOUNDSTAGE / HOUSE INTERIOR DIVIDER WALLS
+  // Separates rooms with authentic doors and archways
+  // ==========================================
+
+  // --- West Wing (Kitchen, Lounge, Bedroom) ---
+  // Kitchen-to-Lounge dividing wall (Z = -5, door gap X ∈ [-17.5, -14.5])
+  { center: [-20.5, -5], size: [5, 0.8], height: 4.2, color: '#e2e8f0', kind: 'interior' },
+  { center: [-11.5, -5], size: [5, 0.8], height: 4.2, color: '#e2e8f0', kind: 'interior' },
+
+  // Lounge-to-Bedroom dividing wall (Z = 12.5, door gap X ∈ [-17.5, -14.5])
+  { center: [-20.5, 12.5], size: [5, 0.8], height: 4.2, color: '#e2e8f0', kind: 'interior' },
+  { center: [-11.5, 12.5], size: [5, 0.8], height: 4.2, color: '#e2e8f0', kind: 'interior' },
+
+  // --- Corridor Partition Walls (along X = -9) ---
+  // Separates West Wing from Central Corridor with wide entryways
+  { center: [-9, -16.5], size: [0.8, 3], height: 4.2, color: '#e2e8f0', kind: 'interior' },
+  { center: [-9, -7.5], size: [0.8, 3], height: 4.2, color: '#e2e8f0', kind: 'interior' },
+  // Lounge open archway is at Z ∈ [-3, 10] connecting Lounge to Central Hallway
+  { center: [-9, 14.5], size: [0.8, 3], height: 4.2, color: '#e2e8f0', kind: 'interior' },
+  { center: [-9, 23.5], size: [0.8, 4], height: 4.2, color: '#e2e8f0', kind: 'interior' },
+
+  // --- Center Wing (HoH Suite, Diary Room, Arena) ---
+  // Corridor-to-Center Wing wall (along X = -5)
+  // HoH Suite door opening at Z ∈ [-14, -10]
+  { center: [-5, -16.5], size: [0.8, 3], height: 4.2, color: '#cbd5e1', kind: 'interior' },
+  { center: [-5, -7.5], size: [0.8, 3], height: 4.2, color: '#cbd5e1', kind: 'interior' },
+
+  // Diary Room soundproof walls:
+  // North wall (Z = -4.5, between HoH Suite and Diary Room)
+  { center: [2, -4.5], size: [14, 0.8], height: 4.2, color: '#a855f7', kind: 'interior' },
+  // South wall (Z = 10.5, between Diary Room and Arena)
+  { center: [2, 10.5], size: [14, 0.8], height: 4.2, color: '#a855f7', kind: 'interior' },
+  // West wall (along X = -5, iconic Diary Room door gap at Z ∈ [3, 5])
+  { center: [-5, 0], size: [0.8, 6], height: 4.2, color: '#a855f7', kind: 'interior' },
+  { center: [-5, 7.5], size: [0.8, 4], height: 4.2, color: '#a855f7', kind: 'interior' },
+
+  // Arena sliding challenge entrance (gap at Z ∈ [15.5, 19.5])
+  { center: [-5, 13], size: [0.8, 4], height: 4.2, color: '#cbd5e1', kind: 'interior' },
+  { center: [-5, 23], size: [0.8, 5], height: 4.2, color: '#cbd5e1', kind: 'interior' },
+
+  // --- House to Garden Boundary Wall (along X = 9) ---
+  // Solid acoustic soundstage wall behind HoH Suite & Arena, glass patio opening to Garden
+  { center: [9, -11], size: [0.8, 14], height: 4.2, color: '#e2e8f0', kind: 'perimeter' },
+  { center: [9, 18.5], size: [0.8, 14], height: 4.2, color: '#e2e8f0', kind: 'perimeter' },
 ];
 
 export function collideWalls(pos: { x: number; z: number }, radius = 0.5): void {

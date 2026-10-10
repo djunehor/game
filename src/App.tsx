@@ -16,9 +16,13 @@ import { NominationsModal } from './components/NominationsModal';
 import { EvictionModal } from './components/EvictionModal';
 import { GameOverModal } from './components/GameOverModal';
 import { DialogueModal } from './components/DialogueModal';
+import { DiaryRoomModal } from './components/DiaryRoomModal';
+import { EmoteBar } from './components/EmoteBar';
 import { StoreModal } from './components/StoreModal';
 import { OnboardingModal } from './components/OnboardingModal';
+import { GuidedTourModal } from './components/GuidedTourModal';
 import { GameCanvas } from './three/GameCanvas';
+import { useTour } from './three/tourStore';
 import type { Housemate } from './types';
 
 export function App() {
@@ -34,10 +38,18 @@ export function App() {
 
   const [showSocial, setShowSocial] = useState(false);
   const [talkTarget, setTalkTarget] = useState<Housemate | null>(null);
+  const [showDiaryRoom, setShowDiaryRoom] = useState(false);
   const [showStore, setShowStore] = useState(false);
   const [isTouch] = useState(
     () => typeof window !== 'undefined' && (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0)
   );
+
+  // Automatically start 3D guided tour for new housemates during onboarding
+  useEffect(() => {
+    if (state && state.phase === 'hoh' && !state.phaseDone && state.onboardingDone === false) {
+      useTour.getState().startTour();
+    }
+  }, [state?.phase, state?.phaseDone, state?.onboardingDone]);
 
   // Sync party music with the Saturday night phase
   useEffect(() => {
@@ -80,10 +92,16 @@ export function App() {
   return (
     <div className="fixed inset-0 overflow-hidden bg-ink">
       {/* 3D world */}
-      <GameCanvas onTalk={setTalkTarget} />
+      <GameCanvas
+        onTalk={setTalkTarget}
+        onOpenDiaryRoom={() => setShowDiaryRoom(true)}
+      />
 
       {/* Overlays */}
       <Hud state={state} />
+
+      {/* Social Emote Bar */}
+      <EmoteBar />
 
       {/* Social feed toggle */}
       <button
@@ -103,6 +121,16 @@ export function App() {
         🛒
       </button>
 
+      {/* 3D Guided Tour toggle */}
+      <button
+        onClick={() => useTour.getState().startTour()}
+        className="absolute top-3 right-32 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/15 bg-ink/70 text-lg text-white shadow-lg backdrop-blur transition hover:bg-ink cursor-pointer"
+        aria-label="Open 3D Guided Tour"
+        title="3D Biggie House Tour"
+      >
+        📖
+      </button>
+
       {/* Logout */}
       <button
         onClick={() => {
@@ -110,13 +138,23 @@ export function App() {
           useAuth.getState().logout();
           resetGame();
         }}
-        className="absolute top-3 right-32 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/15 bg-ink/70 text-lg text-white shadow-lg backdrop-blur transition hover:bg-ink"
+        className="absolute top-3 right-46 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/15 bg-ink/70 text-lg text-white shadow-lg backdrop-blur transition hover:bg-ink cursor-pointer"
         aria-label="Log out"
+        title="Log out"
       >
         🚪
       </button>
 
-      {showSocial && <SocialPanel state={state} onClose={() => setShowSocial(false)} />}
+      {showSocial && (
+        <SocialPanel
+          state={state}
+          onClose={() => setShowSocial(false)}
+          onTalk={(h) => {
+            setTalkTarget(h);
+            setShowSocial(false);
+          }}
+        />
+      )}
       {showStore && <StoreModal state={state} onClose={() => setShowStore(false)} />}
 
       <HouseChat />
@@ -126,8 +164,21 @@ export function App() {
       <GameOverlay state={state} />
 
       {/* Phase modals */}
-      {talkTarget && <DialogueModal housemate={talkTarget} onClose={() => setTalkTarget(null)} />}
-      {phase === 'hoh' && !phaseDone && state.onboardingDone === false && <OnboardingModal />}
+      {showDiaryRoom && (
+        <DiaryRoomModal
+          player={state.player}
+          onClose={() => setShowDiaryRoom(false)}
+        />
+      )}
+      {talkTarget && (
+        <DialogueModal
+          housemate={talkTarget}
+          player={state.player}
+          onClose={() => setTalkTarget(null)}
+        />
+      )}
+      {/* 3D Guided Tour in-game broadcast lower-third */}
+      <GuidedTourModal isStandalone={state.onboardingDone !== false} />
       <HohChallengeOverlay />
       {phase === 'nominations' && !phaseDone && <NominationsModal state={state} />}
       {phase === 'eviction' && !phaseDone && <EvictionModal state={state} />}

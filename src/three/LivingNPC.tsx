@@ -5,6 +5,7 @@ import { Character } from './Character';
 import { ROOM_DEFS, collideWalls } from './rooms';
 import { playerWorldPos, input } from './input';
 import { AMBIENT_CHATTER } from '../data/dialogue';
+import { useEmote } from './emoteStore';
 import { useGame } from '../store';
 import type { Housemate } from '../types';
 
@@ -45,6 +46,7 @@ export function LivingNPC({
   const nextWanderTime = useRef(4 + Math.random() * 6);
   const nextChatterTime = useRef(6 + Math.random() * 12);
   const bubbleClearTimer = useRef(0);
+  const lastEmoteTime = useRef(0);
 
   useFrame((state, delta) => {
     const time = state.clock.getElapsedTime();
@@ -58,6 +60,22 @@ export function LivingNPC({
     const nearby = distToPlayer < 3.2;
     if (nearby !== isNearby) {
       setIsNearby(nearby);
+    }
+
+    // Emote reaction check
+    const currentEmote = useEmote.getState().activeEmote;
+    if (currentEmote && currentEmote.timestamp > lastEmoteTime.current) {
+      lastEmoteTime.current = currentEmote.timestamp;
+      if (distToPlayer < 5.0) {
+        let reply = '';
+        if (currentEmote.type === 'wave') reply = `Hey! 👋 Nice to see you!`;
+        else if (currentEmote.type === 'hype') reply = `Energy high! 🔥 Let's go!`;
+        else if (currentEmote.type === 'dance') reply = `Oya dance! 💃✨`;
+        else if (currentEmote.type === 'clapback') reply = `Who are you shouting at?! 🌶️`;
+        else if (currentEmote.type === 'hug') reply = `Aww, sweet vibes! ❤️`;
+        setSpeechBubble(reply);
+        bubbleClearTimer.current = time + 4.0;
+      }
     }
 
     // If player presses KeyE or KeyF while nearby, trigger talk
@@ -118,6 +136,16 @@ export function LivingNPC({
     setRenderYaw(yaw.current);
   });
 
+  const handleInteract = () => {
+    const distToPlayer = Math.hypot(
+      pos.current.x - playerWorldPos.x,
+      pos.current.z - playerWorldPos.z
+    );
+    if (distToPlayer <= 4.2) {
+      onTalk(housemate);
+    }
+  };
+
   return (
     <Character
       position={renderPos}
@@ -131,7 +159,7 @@ export function LivingNPC({
       speechBubble={speechBubble}
       skinTone={housemate.skinTone}
       hairstyle={housemate.hairstyle}
-      onTalk={() => onTalk(housemate)}
+      onTalk={handleInteract}
     />
   );
 }

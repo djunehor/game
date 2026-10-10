@@ -221,6 +221,72 @@ class SoundEngine {
 
     this.beat++;
   }
+
+  // Deep authoritative tone for Biggie Diary Room announcements
+  public playBiggieTone() {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const sub = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(130, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(98, this.ctx.currentTime + 0.8);
+
+    sub.type = 'triangle';
+    sub.frequency.setValueAtTime(65, this.ctx.currentTime);
+
+    gain.gain.setValueAtTime(0.28, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.9);
+
+    osc.connect(gain);
+    sub.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start();
+    sub.start();
+    osc.stop(this.ctx.currentTime + 1.0);
+    sub.stop(this.ctx.currentTime + 1.0);
+  }
+
+  // Audio feedback for social emotes
+  public playEmoteSound(type: 'wave' | 'hype' | 'clapback' | 'dance' | 'hug') {
+    if (this.muted) return;
+    this.init();
+    if (!this.ctx) return;
+
+    switch (type) {
+      case 'wave':
+        this.playTalkBlip();
+        break;
+      case 'hype':
+        this.playRewardChime();
+        break;
+      case 'clapback':
+        this.playDramaHit();
+        break;
+      case 'hug': {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(554.37, this.ctx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.35);
+        break;
+      }
+      case 'dance':
+        this.playRewardChime();
+        break;
+    }
+  }
 }
 
 export const sound = new SoundEngine();

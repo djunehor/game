@@ -35,7 +35,7 @@ export function GameOverlay({ state }: { state: GameState }) {
       <div className="pointer-events-none absolute right-3 bottom-3 z-10 hidden text-right text-[10px] font-semibold text-white/70 drop-shadow sm:block">
         <div>WASD / arrows — move</div>
         <div>Q / E — rotate camera</div>
-        <div>Click floor — walk there</div>
+        <div>F / click — talk & interact</div>
         <div>Shift — sprint</div>
       </div>
 

@@ -3,7 +3,13 @@ import { Scene } from './Scene';
 import { Player } from './Player';
 import type { Housemate } from '../types';
 
-export function GameCanvas({ onTalk }: { onTalk: (h: Housemate) => void }) {
+export function GameCanvas({
+  onTalk,
+  onOpenDiaryRoom = () => {},
+}: {
+  onTalk: (h: Housemate) => void;
+  onOpenDiaryRoom?: () => void;
+}) {
   return (
     <Canvas
       shadows
@@ -11,7 +17,7 @@ export function GameCanvas({ onTalk }: { onTalk: (h: Housemate) => void }) {
       camera={{ position: [-16, 14, 24], fov: 50, near: 0.5, far: 300 }}
       className="absolute inset-0"
     >
-      <Scene onTalk={onTalk} />
+      <Scene onTalk={onTalk} onOpenDiaryRoom={onOpenDiaryRoom} />
       <Player />
     </Canvas>
   );

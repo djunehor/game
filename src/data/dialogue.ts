@@ -140,6 +140,77 @@ export const DIALOGUE_OPTIONS: DialogueOption[] = [
       };
     },
   },
+  {
+    id: 'scheme',
+    label: 'Conspire on Nominations',
+    emoji: '🤫',
+    description: 'Whisper about who to nominate for eviction on Friday.',
+    costEnergy: 10,
+    effect: (player, target) => {
+      const currentAffinity = player.relationships[target.id] ?? 0;
+      const receptive = currentAffinity > 10 || target.trait === 'Strategic Schemer';
+      if (receptive) {
+        return {
+          playerReply: `You whispered to ${target.nickname}: "Friday is coming. We need to align our votes against the biggest threats."`,
+          targetReply: `"Smart move. I have my eyes on two people already. Let us compare notes before Biggie calls us."`,
+          affinityChange: 15,
+          cloutGain: 1400,
+          standingChange: 3,
+          tweet: {
+            handle: '@BBNStrategy',
+            text: `Cameras caught ${player.nickname} and ${target.nickname} whispering game strategy in low voices! The game is ON! ♟️🔥`,
+          },
+        };
+      } else {
+        return {
+          playerReply: `You tried to discuss nomination plans with ${target.nickname}.`,
+          targetReply: `"Do not bring that bad energy to me. I nominate based on my spirit, not your plot."`,
+          affinityChange: -8,
+          cloutGain: 500,
+          standingChange: -3,
+          tweet: {
+            handle: '@BBNUpdates',
+            text: `${target.nickname} shut down ${player.nickname}'s attempt to influence nominations. Tension rising! 🍿`,
+          },
+        };
+      }
+    },
+  },
+  {
+    id: 'share_food',
+    label: 'Cook & Share Food',
+    emoji: '🍲',
+    description: 'Offer delicious food to win their heart and build goodwill.',
+    costEnergy: 12,
+    effect: (player, target) => {
+      const isChef = target.trait === 'Kitchen General';
+      if (isChef) {
+        return {
+          playerReply: `You served ${target.nickname} a plate of fresh hot food.`,
+          targetReply: `"Hmm! The seasoning actually makes sense! You tried well, my friend."`,
+          affinityChange: 22,
+          cloutGain: 900,
+          standingChange: 6,
+          tweet: {
+            handle: '@FoodieBBN',
+            text: `Even the Kitchen General ${target.nickname} approved ${player.nickname}'s cooking! Wholesome vibes in the house! 😋✨`,
+          },
+        };
+      } else {
+        return {
+          playerReply: `You shared a hot portion of peppered meat and plantain with ${target.nickname}.`,
+          targetReply: `"Bless you! You saved my life today. I will not forget this kindness!"`,
+          affinityChange: 18,
+          cloutGain: 750,
+          standingChange: 5,
+          tweet: {
+            handle: '@BBNMoments',
+            text: `${player.nickname} feeding ${target.nickname} late night... friendship goals! ❤️🍲`,
+          },
+        };
+      }
+    },
+  },
 ];
 
 // Random ambient chatter lines for housemates

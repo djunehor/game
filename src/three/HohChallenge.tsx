@@ -114,10 +114,15 @@ export function HohChallenge() {
                   <sphereGeometry args={[0.3, 16, 16]} />
                   <meshBasicMaterial color="#fff7c2" />
                 </mesh>
+                {/* Tall sky beam to guide player from afar */}
+                <mesh position={[0, 5, 0]}>
+                  <cylinderGeometry args={[0.08, 0.12, 10, 8]} />
+                  <meshBasicMaterial color="#fef08a" transparent opacity={0.35} />
+                </mesh>
                 {/* Ground marker */}
                 <mesh position={[0, -1.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                   <circleGeometry args={[1.2, 24]} />
-                  <meshBasicMaterial color="#fbbf24" transparent opacity={0.25} />
+                  <meshBasicMaterial color="#fbbf24" transparent opacity={0.35} />
                 </mesh>
               </>
             ) : (

@@ -42,10 +42,25 @@ export function attachInput() {
   });
 
   window.addEventListener('blur', () => {
-    input.keys = {};
+    resetInput();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      resetInput();
+    }
   });
 }
 
+export function resetInput() {
+  console.log('[input] resetInput called - clearing all keys and target');
+  input.keys = {};
+  input.target = null;
+  input.moveVector.x = 0;
+  input.moveVector.y = 0;
+}
+
 export function setTarget(x: number, z: number) {
+  console.log('[input] setTarget called:', { x, z });
   input.target = { x, z };
 }
