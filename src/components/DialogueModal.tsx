@@ -4,6 +4,7 @@ import { DIALOGUE_OPTIONS, DialogueOption } from '../data/dialogue';
 import { useGame } from '../store';
 import { Modal, ModalHeader } from './Modal';
 import { sound } from '../engine/sound';
+import { voice } from '../engine/voice';
 import { resetInput } from '../three/input';
 
 export function DialogueModal({
@@ -17,6 +18,9 @@ export function DialogueModal({
 }) {
   useEffect(() => {
     resetInput();
+    return () => {
+      voice.stop();
+    };
   }, []);
 
   const storePlayer = useGame((s) => s.state?.player);
@@ -51,6 +55,7 @@ export function DialogueModal({
     sound.playTalkBlip();
     const outcome = interact(housemate.id, option.id);
     if (outcome) {
+      voice.speakHousemate(housemate, outcome.targetReply);
       setResult({
         playerReply: outcome.playerReply,
         targetReply: outcome.targetReply,

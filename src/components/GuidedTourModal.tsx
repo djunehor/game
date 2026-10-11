@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useTour, TOUR_STOPS } from '../three/tourStore';
 import { useGame } from '../store';
 import { sound } from '../engine/sound';
+import { voice } from '../engine/voice';
 import { resetInput } from '../three/input';
 
 export function GuidedTourModal({
@@ -25,7 +26,16 @@ export function GuidedTourModal({
 
   useEffect(() => {
     resetInput();
+    return () => {
+      voice.stop();
+    };
   }, []);
+
+  useEffect(() => {
+    if (isTourActive && stop?.narration) {
+      voice.speakBiggie(stop.narration);
+    }
+  }, [isTourActive, currentStopIndex, stop?.narration]);
 
   const handleNext = () => {
     if (isLast) {

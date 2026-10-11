@@ -7,6 +7,8 @@ import { DiaryRoomModal } from '../src/components/DiaryRoomModal';
 import { EmoteBar } from '../src/components/EmoteBar';
 import { GuidedTourModal } from '../src/components/GuidedTourModal';
 import { OnboardingModal } from '../src/components/OnboardingModal';
+import { CharacterCreator } from '../src/components/CharacterCreator';
+import { AvatarPreview3D } from '../src/components/AvatarPreview3D';
 import { useGame } from '../src/store';
 import { useTour } from '../src/three/tourStore';
 import type { CreationConfig } from '../src/types';
@@ -87,6 +89,68 @@ assert(htmlTour.includes('pointer-events-none'), 'GuidedTourModal wrapper has po
 
 const htmlOnboarding = renderToString(<OnboardingModal />);
 assert(htmlOnboarding.includes('LIVE 3D TOUR'), 'OnboardingModal embeds 3D tour broadcast');
+
+console.log('→ Testing CharacterCreator & Avatar Preview 3D UI');
+const htmlCreator = renderToString(<CharacterCreator />);
+assert(htmlCreator.includes('Create Your Housemate'), 'CharacterCreator renders headline');
+assert(htmlCreator.includes('Enter the Biggie House'), 'CharacterCreator renders CTA button');
+assert(htmlCreator.includes('Woman') && htmlCreator.includes('Man'), 'CharacterCreator renders gender model selectors');
+assert(htmlCreator.includes('Look &amp; Styling') || htmlCreator.includes('Look & Styling'), 'CharacterCreator renders Look & Styling section');
+assert(htmlCreator.includes('Quick Start'), 'CharacterCreator renders Quick Start button');
+
+const htmlPreview = renderToString(
+  <AvatarPreview3D
+    gender="F"
+    accentColor="#e63946"
+    skinTone="#8d5524"
+    nickname="Ada"
+    avatarEmoji="💃🏾"
+  />
+);
+assert(htmlPreview.includes('💃🏾'), 'AvatarPreview3D fallback renders emoji badge during SSR');
+assert(htmlPreview.includes('Loading 3D Avatar...'), 'AvatarPreview3D fallback renders SSR status text safely');
+
+console.log('→ Testing HouseChat Component UI');
+import { HouseChat } from '../src/components/HouseChat';
+const htmlChat = renderToString(<HouseChat />);
+assert(htmlChat.includes('Toggle house chat'), 'HouseChat renders toggle chat button with accessibility label');
+assert(htmlChat.includes('connecting') || htmlChat.includes('live'), 'HouseChat renders connection indicator badge');
+
+console.log('→ Testing ToastContainer Component & Action Notification UI');
+import { ToastContainer } from '../src/components/ToastContainer';
+import { useToast } from '../src/engine/toastStore';
+
+// Initial state: no toasts
+const emptyToastHtml = renderToString(<ToastContainer />);
+assert(emptyToastHtml === '', 'ToastContainer renders null when no toasts are active');
+
+// Push a test action toast (e.g. Power Nap complete)
+const activeToastHtml = renderToString(
+  <ToastContainer
+    toasts={[
+      {
+        id: 'toast-1',
+        emoji: '😴',
+        title: 'Power Nap Completed!',
+        description: '+35 Energy · +15 Sanity',
+        type: 'success',
+      },
+    ]}
+  />
+);
+assert(activeToastHtml.includes('Power Nap Completed!'), 'ToastContainer renders action title');
+assert(activeToastHtml.includes('+35 Energy · +15 Sanity'), 'ToastContainer renders action bonus description');
+assert(activeToastHtml.includes('😴'), 'ToastContainer renders action emoji');
+
+import { SolidObject } from '../src/three/SolidObject';
+
+console.log('→ Testing SolidObject Component UI');
+const solidObjectHtml = renderToString(
+  <SolidObject name="Test Couch">
+    <mesh />
+  </SolidObject>
+);
+assert(solidObjectHtml.includes('<group'), 'SolidObject renders Three.js group container');
 
 console.log(`\nUI Tests Summary: ${passed} passed, ${failed} failed`);
 if (failed > 0) {

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
-import { playerWorldPos } from './input';
+import { playerWorldPos, setTarget } from './input';
 import { useGame } from '../store';
 import { useTour } from './tourStore';
 import { sound } from '../engine/sound';
+import { useToast } from '../engine/toastStore';
+import { ROOM_ACTIONS } from '../engine/actions';
 import type { Room } from '../types';
 
 export interface InteractiveStation {
@@ -25,7 +27,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Play Ludo',
     emoji: '🎲',
-    pos: [-16, 0.6, 4.8],
+    pos: [-10, 0.6, 4.8],
     actionKey: 'play_ludo',
   },
   {
@@ -33,7 +35,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Play Ayo Olopon',
     emoji: '🪵',
-    pos: [-14.8, 0.6, 4.6],
+    pos: [-8.8, 0.6, 4.6],
     actionKey: 'play_ayo',
   },
   {
@@ -41,7 +43,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Watch TV',
     emoji: '📺',
-    pos: [-16, 1.2, 10.5],
+    pos: [-10, 1.2, 10.5],
     actionKey: 'watch_tv',
   },
   {
@@ -49,7 +51,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Truth or Dare',
     emoji: '🍾',
-    pos: [-16, 0.5, 2.2],
+    pos: [-10, 0.5, 2.2],
     actionKey: 'spin_bottle',
   },
   {
@@ -57,7 +59,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'House Meeting',
     emoji: '📢',
-    pos: [-16, 0.6, 7.5],
+    pos: [-10, 0.6, 6.2],
     actionKey: 'house_meeting',
   },
   {
@@ -65,7 +67,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Wager Rehearsal',
     emoji: '🎭',
-    pos: [-13, 0.5, 8.0],
+    pos: [-7, 0.5, 8.0],
     actionKey: 'wager_rehearsal',
   },
   {
@@ -73,7 +75,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Sofa Courting',
     emoji: '🥰',
-    pos: [-19.5, 0.6, 3.5],
+    pos: [-13.5, 0.6, 3.5],
     actionKey: 'sofa_snuggle',
   },
   {
@@ -81,7 +83,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Full Chest Callout',
     emoji: '🤬',
-    pos: [-12.5, 0.6, 3.5],
+    pos: [-6.5, 0.6, 3.5],
     actionKey: 'full_chest_callout',
   },
   {
@@ -89,7 +91,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Redial Phone',
     emoji: '☎️',
-    pos: [-10.5, 1.0, 6.0],
+    pos: [-4.5, 1.0, 6.0],
     actionKey: 'redial_phone',
   },
   {
@@ -97,7 +99,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Table Shaking',
     emoji: '🪑',
-    pos: [-16, 1.2, 8.8],
+    pos: [-10, 1.2, 8.8],
     actionKey: 'ebuka_table_shake',
   },
   {
@@ -105,7 +107,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Housemates FREEZE!',
     emoji: '🧊',
-    pos: [-16, 0.6, 0.5],
+    pos: [-10, 0.6, 0.5],
     actionKey: 'housemates_freeze',
   },
   {
@@ -113,7 +115,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Black Envelope Hunt',
     emoji: '✉️',
-    pos: [-19.5, 0.6, 1.5],
+    pos: [-13.5, 0.6, 1.5],
     actionKey: 'black_envelope_hunt',
   },
   {
@@ -121,7 +123,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Eviction Walkout',
     emoji: '🚪',
-    pos: [-9.0, 1.0, -3.0],
+    pos: [-3.0, 1.0, -3.0],
     actionKey: 'eviction_walkout',
   },
 
@@ -131,7 +133,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Cook Jollof',
     emoji: '🍲',
-    pos: [-16, 0.9, -15.5],
+    pos: [-10, 0.9, -14.5],
     actionKey: 'cook_jollof',
   },
   {
@@ -139,7 +141,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Midnight Snack',
     emoji: '🥪',
-    pos: [-20.5, 1.2, -16.5],
+    pos: [-14.5, 1.2, -15.5],
     actionKey: 'midnight_chop',
   },
   {
@@ -147,7 +149,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Wash Dishes',
     emoji: '🧼',
-    pos: [-13.5, 0.9, -15.5],
+    pos: [-7.5, 0.9, -14.5],
     actionKey: 'wash_dishes',
   },
   {
@@ -155,7 +157,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Steal Meat',
     emoji: '🥩',
-    pos: [-17.5, 1.0, -12.0],
+    pos: [-11.5, 1.0, -11.0],
     actionKey: 'steal_meat',
   },
   {
@@ -163,7 +165,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Brew Coffee',
     emoji: '☕',
-    pos: [-14.5, 1.0, -12.0],
+    pos: [-8.5, 1.0, -11.0],
     actionKey: 'brew_coffee',
   },
   {
@@ -171,7 +173,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Share Meal',
     emoji: '🤝',
-    pos: [-16, 0.6, -9.0],
+    pos: [-10, 0.6, -8.0],
     actionKey: 'share_meal',
   },
   {
@@ -179,7 +181,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Quick Noodles',
     emoji: '🍜',
-    pos: [-18.5, 1.0, -15.5],
+    pos: [-12.5, 1.0, -14.5],
     actionKey: 'quick_noodles',
   },
 
@@ -189,7 +191,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Pantry Rush',
     emoji: '📦',
-    pos: [-22.0, 1.0, -9.0],
+    pos: [-16.0, 1.0, -8.0],
     actionKey: 'pantry_rush',
   },
   {
@@ -197,7 +199,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Task Prop Chest',
     emoji: '🧰',
-    pos: [-22.0, 0.6, -7.0],
+    pos: [-16.0, 0.6, -6.0],
     actionKey: 'task_prop_chest',
   },
   {
@@ -205,7 +207,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Kitchen',
     name: 'Hide Food Stash',
     emoji: '🤫',
-    pos: [-22.5, 0.6, -11.0],
+    pos: [-16.5, 0.6, -10.0],
     actionKey: 'pantry_stash',
   },
 
@@ -215,7 +217,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Power Nap',
     emoji: '😴',
-    pos: [-19, 0.8, 20],
+    pos: [-9, 0.8, 18],
     actionKey: 'power_nap',
   },
   {
@@ -223,7 +225,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Mirror Slay',
     emoji: '💅🏾',
-    pos: [-16, 1.2, 24],
+    pos: [-6, 1.2, 22],
     actionKey: 'mirror_slay',
   },
   {
@@ -231,7 +233,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Duvet Whispers',
     emoji: '🛌',
-    pos: [-13, 0.8, 20],
+    pos: [-3, 0.8, 18],
     actionKey: 'duvet_whisper',
   },
   {
@@ -239,7 +241,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Wardrobe Change',
     emoji: '👗',
-    pos: [-22, 1.0, 18],
+    pos: [-12, 1.0, 16],
     actionKey: 'wardrobe_change',
   },
   {
@@ -247,7 +249,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Pack Suitcase',
     emoji: '🧳',
-    pos: [-13, 0.5, 23],
+    pos: [-3, 0.5, 21],
     actionKey: 'pack_suitcase',
   },
   {
@@ -255,7 +257,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Hair Braiding',
     emoji: '💈',
-    pos: [-18, 0.8, 23],
+    pos: [-8, 0.8, 21],
     actionKey: 'hair_styling',
   },
   {
@@ -263,7 +265,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Pillow Fight',
     emoji: '🪶',
-    pos: [-16, 0.8, 18],
+    pos: [-6, 0.8, 16],
     actionKey: 'pillow_fight',
   },
 
@@ -273,7 +275,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Hot Shower',
     emoji: '🚿',
-    pos: [-22, 1.0, 24],
+    pos: [-12, 1.0, 22],
     actionKey: 'hot_shower',
   },
   {
@@ -281,7 +283,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Vanity Gossip',
     emoji: '💄',
-    pos: [-19.5, 1.0, 25],
+    pos: [-9.5, 1.0, 23],
     actionKey: 'vanity_gossip',
   },
   {
@@ -289,7 +291,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Bedroom',
     name: 'Shower Romance',
     emoji: '🧖',
-    pos: [-22, 1.0, 21.5],
+    pos: [-12, 1.0, 19.5],
     actionKey: 'shower_romance',
   },
 
@@ -299,7 +301,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Diary Room',
     name: 'Confess to Biggie',
     emoji: '🎙️',
-    pos: [2, 0.8, 3.5],
+    pos: [-20, 0.8, 17.5],
     isDiaryRoom: true,
   },
   {
@@ -307,7 +309,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Diary Room',
     name: 'Nominations Ritual',
     emoji: '🗳️',
-    pos: [4.5, 0.8, 6.0],
+    pos: [-17.5, 0.8, 20.0],
     actionKey: 'diary_nominate',
   },
   {
@@ -315,7 +317,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Diary Room',
     name: 'Accept Secret Task',
     emoji: '🕵️',
-    pos: [0, 0.8, 6.0],
+    pos: [-22.0, 0.8, 20.0],
     actionKey: 'secret_task',
   },
   {
@@ -323,7 +325,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Diary Room',
     name: 'Strike Appeal',
     emoji: '🙏',
-    pos: [2, 0.8, 6.5],
+    pos: [-20.0, 0.8, 20.5],
     actionKey: 'strike_appeal',
   },
   {
@@ -331,7 +333,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Diary Room',
     name: 'Report Violation',
     emoji: '📝',
-    pos: [-1.5, 0.8, 4.0],
+    pos: [-23.5, 0.8, 18.0],
     actionKey: 'lodge_complaint',
   },
 
@@ -341,7 +343,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'HoH Suite',
     name: 'HoH Luxury',
     emoji: '👑',
-    pos: [2, 0.8, -14],
+    pos: [16, 0.8, -23],
     actionKey: 'luxuriate',
     requiresHoH: true,
   },
@@ -350,7 +352,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'HoH Suite',
     name: 'Surveillance Monitors',
     emoji: '🖥️',
-    pos: [6, 1.0, -14],
+    pos: [20, 1.0, -23],
     actionKey: 'surveillance_spy',
     requiresHoH: true,
   },
@@ -359,7 +361,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'HoH Suite',
     name: 'VIP Jacuzzi',
     emoji: '🛁',
-    pos: [-2, 0.5, -9],
+    pos: [12, 0.5, -18],
     actionKey: 'hoh_jacuzzi',
     requiresHoH: true,
   },
@@ -368,7 +370,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'HoH Suite',
     name: 'Invite VIP Guest',
     emoji: '🤝',
-    pos: [0, 0.8, -9],
+    pos: [14, 0.8, -18],
     actionKey: 'invite_vip_guest',
     requiresHoH: true,
   },
@@ -377,7 +379,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'HoH Suite',
     name: 'Save & Replace Veto',
     emoji: '⚡',
-    pos: [5.5, 0.8, -9],
+    pos: [19.5, 0.8, -18],
     actionKey: 'veto_power',
     requiresHoH: true,
   },
@@ -388,7 +390,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'Pool Chill',
     emoji: '🏊',
-    pos: [24, 0.4, 4],
+    pos: [16, 0.4, -2],
     actionKey: 'pool_chill',
   },
   {
@@ -396,7 +398,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'Work Out',
     emoji: '💪',
-    pos: [28, 0.8, 14],
+    pos: [20, 0.8, 8],
     actionKey: 'exercise',
   },
   {
@@ -404,7 +406,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'Grill Suya',
     emoji: '🍢',
-    pos: [18, 0.6, -4],
+    pos: [10, 0.6, -10],
     actionKey: 'grill_suya',
   },
   {
@@ -412,7 +414,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'DJ Booth Dance',
     emoji: '🎧',
-    pos: [28, 1.0, -4],
+    pos: [20, 1.0, -10],
     actionKey: 'dj_booth',
   },
   {
@@ -420,7 +422,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'Outdoor Jacuzzi',
     emoji: '🛁',
-    pos: [30, 0.5, 4],
+    pos: [22, 0.5, -2],
     actionKey: 'garden_jacuzzi',
   },
   {
@@ -428,7 +430,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'Wash Clothes',
     emoji: '🧺',
-    pos: [18, 0.6, 12],
+    pos: [10, 0.6, 6],
     actionKey: 'laundry_wash',
   },
   {
@@ -436,7 +438,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'Sun Lounger Strategy',
     emoji: '🕶️',
-    pos: [17, 0.5, 4],
+    pos: [9, 0.5, -2],
     actionKey: 'sun_lounger',
   },
   {
@@ -444,7 +446,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'Gossip Bench',
     emoji: '🚬',
-    pos: [31, 0.5, -8],
+    pos: [23, 0.5, -14],
     actionKey: 'gossip_bench',
   },
   {
@@ -452,7 +454,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'Sin Bin Punishment',
     emoji: '🧹',
-    pos: [31, 0.5, 14],
+    pos: [23, 0.5, 8],
     actionKey: 'sin_bin',
   },
 
@@ -462,7 +464,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Arena',
     name: 'Brand Sponsor Challenge',
     emoji: '💰',
-    pos: [2, 0.6, 15],
+    pos: [16, 0.6, 17],
     actionKey: 'brand_sponsor_task',
   },
   {
@@ -470,7 +472,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Arena',
     name: 'Wager Showcase',
     emoji: '🎭',
-    pos: [2, 0.6, 18],
+    pos: [16, 0.6, 20],
     actionKey: 'wager_showcase',
   },
   {
@@ -478,7 +480,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Arena',
     name: 'Obstacle Drills',
     emoji: '🧗',
-    pos: [4.5, 0.6, 21],
+    pos: [18.5, 0.6, 23],
     actionKey: 'obstacle_drills',
   },
   {
@@ -486,7 +488,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Arena',
     name: 'Push-Up Showdown',
     emoji: '🥊',
-    pos: [-0.5, 0.6, 21],
+    pos: [13.5, 0.6, 23],
     actionKey: 'pushup_contest',
   },
   {
@@ -494,7 +496,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Arena',
     name: 'Wager Challenge Coins',
     emoji: '🪙',
-    pos: [5.5, 0.6, 16],
+    pos: [19.5, 0.6, 18],
     actionKey: 'bet_challenge',
   },
   {
@@ -502,7 +504,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Arena',
     name: 'Tail of House Costume',
     emoji: '🤡',
-    pos: [2, 0.6, 22.5],
+    pos: [16, 0.6, 24.5],
     actionKey: 'toth_punishment',
   },
 
@@ -512,7 +514,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Arena',
     name: 'Innoson Car Challenge',
     emoji: '🚙',
-    pos: [-3.0, 0.6, 15.0],
+    pos: [11.0, 0.6, 17.0],
     actionKey: 'innoson_car_task',
   },
   {
@@ -520,7 +522,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Lounge',
     name: 'Probe Fake Housemate',
     emoji: '🕵️‍♂️',
-    pos: [-12.5, 0.6, 6.0],
+    pos: [-6.5, 0.6, 6.0],
     actionKey: 'fake_housemate_probe',
   },
   {
@@ -528,7 +530,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'HoH Suite',
     name: 'Appoint Deputy HoH',
     emoji: '👑',
-    pos: [3.5, 0.8, -9.0],
+    pos: [17.5, 0.8, -18.0],
     actionKey: 'select_deputy_hoh',
     requiresHoH: true,
   },
@@ -537,7 +539,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Arena',
     name: 'Dual-House Wing Clash',
     emoji: '⚔️',
-    pos: [-1.0, 0.6, 18.0],
+    pos: [13.0, 0.6, 20.0],
     actionKey: 'dual_house_clash',
   },
   {
@@ -545,7 +547,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Garden',
     name: 'Pool Party Dance-Off',
     emoji: '🌊',
-    pos: [21.0, 0.5, 6.0],
+    pos: [13.0, 0.5, 0.0],
     actionKey: 'pool_party_dance',
   },
   {
@@ -553,7 +555,7 @@ export const STATIONS: InteractiveStation[] = [
     room: 'Diary Room',
     name: 'Biggie Wellness Debrief',
     emoji: '🩺',
-    pos: [-2.0, 0.8, 6.0],
+    pos: [-24.0, 0.8, 20.0],
     actionKey: 'wellness_checkup',
   },
 ];
@@ -578,7 +580,7 @@ function StationIndicator({
       playerWorldPos.x - station.pos[0],
       playerWorldPos.z - station.pos[2]
     );
-    const nearby = dist <= 4.5;
+    const nearby = dist <= 3.2;
     if (nearby !== isNearby) {
       setIsNearby(nearby);
     }
@@ -591,89 +593,126 @@ function StationIndicator({
       playerWorldPos.z - station.pos[2]
     );
 
-    if (dist > 4.5) {
-      // Station is out of reach; player moves manually with controls
+    if (dist > 3.8) {
+      // Station is out of reach; automatically navigate avatar towards the station
+      setTarget(station.pos[0], station.pos[2]);
+      useToast.getState().showToast({
+        emoji: '🚶',
+        title: `Walking to ${station.name}...`,
+        type: 'info',
+      });
       return;
     }
 
     // Close enough: trigger action!
     if (station.isDiaryRoom) {
       sound.playBiggieTone();
+      useToast.getState().showToast({
+        emoji: '🎙️',
+        title: 'Entering Biggie’s Diary Room...',
+        type: 'info',
+      });
       onOpenDiaryRoom();
       return;
     }
 
     if (station.requiresHoH && !player?.isHoH) {
       sound.playBiggieBuzzer();
+      useToast.getState().showToast({
+        emoji: '👑',
+        title: 'Head of House Only',
+        description: 'This station is restricted to the reigning Head of House.',
+        type: 'warning',
+      });
       return;
     }
 
     if (station.actionKey) {
       if (actionsLeft <= 0 && phase === 'daily') {
         sound.playBiggieBuzzer();
+        useToast.getState().showToast({
+          emoji: '⚠️',
+          title: '0 Actions Left Today',
+          description: 'You have used all 3 daily actions. End the day or rest!',
+          type: 'warning',
+        });
         return;
       }
+
+      if (player && player.energy < 15 && station.actionKey !== 'power_nap') {
+        sound.playBiggieBuzzer();
+        useToast.getState().showToast({
+          emoji: '😴',
+          title: 'Too Exhausted',
+          description: 'Energy is below 15. Take a Power Nap in the Bedroom first!',
+          type: 'warning',
+        });
+        return;
+      }
+
+      const action = ROOM_ACTIONS.find((a) => a.key === station.actionKey);
       sound.playRewardChime();
       doAction(station.actionKey);
+
+      const effects: string[] = [];
+      if (action?.effect.energy) effects.push(`${action.effect.energy > 0 ? '+' : ''}${action.effect.energy} Energy`);
+      if (action?.effect.sanity) effects.push(`${action.effect.sanity > 0 ? '+' : ''}${action.effect.sanity} Sanity`);
+      if (action?.effect.hunger) effects.push(`${action.effect.hunger > 0 ? '+' : ''}${action.effect.hunger} Hunger`);
+      if (action?.effect.bbCoins) effects.push(`${action.effect.bbCoins > 0 ? '+' : ''}${action.effect.bbCoins} BB Coins`);
+      if (action?.effect.fanbaseClout) effects.push(`${action.effect.fanbaseClout > 0 ? '+' : ''}${action.effect.fanbaseClout} Clout`);
+
+      useToast.getState().showToast({
+        emoji: station.emoji,
+        title: `${station.name} Completed!`,
+        description: effects.join(' · ') || 'Diary log updated.',
+        type: 'success',
+      });
     }
   };
 
   const isRestrictedHoH = station.requiresHoH && !player?.isHoH;
+  const showLabel = isNearby || hovered;
 
   return (
     <group position={station.pos}>
-      {/* 3D Glowing Ground Ring Indicator */}
-      <mesh
-        position={[0, -0.6, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        onClick={handleClick}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-          document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={() => {
-          setHovered(false);
-          document.body.style.cursor = 'auto';
-        }}
-      >
-        <ringGeometry args={[0.7, 0.95, 24]} />
-        <meshBasicMaterial
-          color={station.isDiaryRoom ? '#a855f7' : isRestrictedHoH ? '#ef4444' : hovered ? '#fbbf24' : '#38bdf8'}
-          transparent
-          opacity={isNearby ? 0.85 : hovered ? 0.7 : 0.4}
-        />
-      </mesh>
-
       {/* Floating 3D Action Label */}
-      <Html position={[0, 1.2, 0]} center distanceFactor={14} zIndexRange={[12, 0]}>
-        <div
-          onClick={handleClick}
-          className={`pointer-events-auto flex cursor-pointer flex-col items-center whitespace-nowrap transition-all duration-200 ${
-            hovered || isNearby ? 'scale-105' : 'scale-95 opacity-80'
-          }`}
+      {showLabel && (
+        <Html
+          position={[0, 1.2, 0]}
+          center
+          distanceFactor={5}
+          zIndexRange={[12, 0]}
         >
           <div
-            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold shadow-lg backdrop-blur-md transition ${
-              station.isDiaryRoom
-                ? 'bg-purple-900/90 text-purple-200 ring-2 ring-purple-400'
-                : isRestrictedHoH
-                  ? 'bg-red-950/90 text-red-300 ring-1 ring-red-500'
-                  : hovered || isNearby
-                    ? 'bg-ink text-gold ring-2 ring-gold'
-                    : 'bg-black/75 text-white ring-1 ring-white/20'
+            onClick={handleClick}
+            onPointerOver={() => setHovered(true)}
+            onPointerOut={() => setHovered(false)}
+            className={`pointer-events-auto flex cursor-pointer flex-col items-center whitespace-nowrap transition-all duration-200 ${
+              hovered || isNearby ? 'scale-100' : 'scale-90 opacity-75'
             }`}
           >
-            <span className="text-sm">{station.emoji}</span>
-            <span>{station.name}</span>
-            {isNearby && (
-              <span className="ml-0.5 rounded bg-white/20 px-1 py-0.2 text-[9px] font-bold text-white uppercase">
-                Tap
-              </span>
-            )}
+            <div
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold shadow-lg backdrop-blur-md transition ${
+                station.isDiaryRoom
+                  ? 'bg-purple-900/90 text-purple-200 ring-2 ring-purple-400'
+                  : isRestrictedHoH
+                    ? 'bg-red-950/90 text-red-300 ring-1 ring-red-500'
+                    : hovered || isNearby
+                      ? 'bg-ink text-gold ring-2 ring-gold'
+                      : 'bg-black/75 text-white ring-1 ring-white/20'
+              }`}
+            >
+              <span className="text-sm">{station.emoji}</span>
+              <span>{station.name}</span>
+              {isNearby && (
+                <span className="ml-0.5 rounded bg-white/20 px-1 py-0.2 text-[9px] font-bold text-white uppercase">
+                  Tap
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      </Html>
+        </Html>
+      )}
     </group>
   );
 }

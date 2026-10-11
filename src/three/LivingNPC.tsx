@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Character } from './Character';
-import { ROOM_DEFS, collideWalls } from './rooms';
+import { ROOM_DEFS, getRandomWalkablePointInRoom, moveWithSliding } from './rooms';
+import { updateAvatarCollider, removeAvatarCollider } from './collisionStore';
 import { playerWorldPos, input } from './input';
 import { AMBIENT_CHATTER } from '../data/dialogue';
 import { useEmote } from './emoteStore';
@@ -22,23 +23,20 @@ export function LivingNPC({
     ROOM_DEFS.find((r) => r.id === (housemate.currentRoom ?? 'Lounge')) ?? ROOM_DEFS[1];
   const isParty = useGame((s) => s.state?.phase === 'party');
 
-  // Initial position distributed in room
-  const initialOffsetAngle = index * 1.25;
-  const initialPos = new THREE.Vector3(
-    room.center[0] + Math.cos(initialOffsetAngle) * 3.2,
-    0,
-    room.center[1] + Math.sin(initialOffsetAngle) * 3.2
-  );
+  // Initial position in open walkable floor space
+  const initialPt = getRandomWalkablePointInRoom(room, 0.45);
+  const initialPos = new THREE.Vector3(initialPt.x, 0, initialPt.z);
 
   const pos = useRef<THREE.Vector3>(initialPos);
   const target = useRef<THREE.Vector3>(initialPos.clone());
-  const yaw = useRef<number>(initialOffsetAngle + Math.PI);
+  const initialYaw = index * 1.25 + Math.PI;
+  const yaw = useRef<number>(initialYaw);
   const [renderPos, setRenderPos] = useState<[number, number, number]>([
     initialPos.x,
     0,
     initialPos.z,
   ]);
-  const [renderYaw, setRenderYaw] = useState<number>(initialOffsetAngle + Math.PI);
+  const [renderYaw, setRenderYaw] = useState<number>(initialYaw);
   const [isWalking, setIsWalking] = useState(false);
   const [isNearby, setIsNearby] = useState(false);
   const [speechBubble, setSpeechBubble] = useState<string | null>(null);
@@ -46,7 +44,19 @@ export function LivingNPC({
   const nextWanderTime = useRef(4 + Math.random() * 6);
   const nextChatterTime = useRef(6 + Math.random() * 12);
   const bubbleClearTimer = useRef(0);
+  const animClearTimer = useRef(0);
   const lastEmoteTime = useRef(0);
+  const stuckFrames = useRef(0);
+  const [animOverride, setAnimOverride] = useState<
+    'idle' | 'walk' | 'dance' | 'celebrate' | 'shock' | 'angry' | 'thumbsup' | null
+  >(null);
+
+  useEffect(() => {
+    updateAvatarCollider(housemate.id, pos.current.x, pos.current.z, 0.45);
+    return () => {
+      removeAvatarCollider(housemate.id);
+    };
+  }, [housemate.id]);
 
   useFrame((state, delta) => {
     const time = state.clock.getElapsedTime();
@@ -68,14 +78,30 @@ export function LivingNPC({
       lastEmoteTime.current = currentEmote.timestamp;
       if (distToPlayer < 5.0) {
         let reply = '';
-        if (currentEmote.type === 'wave') reply = `Hey! 👋 Nice to see you!`;
-        else if (currentEmote.type === 'hype') reply = `Energy high! 🔥 Let's go!`;
-        else if (currentEmote.type === 'dance') reply = `Oya dance! 💃✨`;
-        else if (currentEmote.type === 'clapback') reply = `Who are you shouting at?! 🌶️`;
-        else if (currentEmote.type === 'hug') reply = `Aww, sweet vibes! ❤️`;
+        if (currentEmote.type === 'wave') {
+          reply = `Hey! 👋 Nice to see you!`;
+          setAnimOverride('celebrate');
+        } else if (currentEmote.type === 'hype') {
+          reply = `Energy high! 🔥 Let's go!`;
+          setAnimOverride('celebrate');
+        } else if (currentEmote.type === 'dance') {
+          reply = `Oya dance! 💃✨`;
+          setAnimOverride('dance');
+        } else if (currentEmote.type === 'clapback') {
+          reply = `Who are you shouting at?! 🌶️`;
+          setAnimOverride('angry');
+        } else if (currentEmote.type === 'hug') {
+          reply = `Aww, sweet vibes! ❤️`;
+          setAnimOverride('celebrate');
+        }
         setSpeechBubble(reply);
         bubbleClearTimer.current = time + 4.0;
+        animClearTimer.current = time + 3.2;
       }
+    }
+
+    if (animOverride && time > animClearTimer.current) {
+      setAnimOverride(null);
     }
 
     // If player presses KeyE or KeyF while nearby, trigger talk
@@ -88,14 +114,9 @@ export function LivingNPC({
     // Autonomous wandering decision (skip during party — everyone dances)
     if (!isParty && time > nextWanderTime.current) {
       nextWanderTime.current = time + 7 + Math.random() * 9;
-      // Pick random point in room bounds
-      const hw = Math.max(2, room.size[0] / 2 - 1.8);
-      const hd = Math.max(2, room.size[1] / 2 - 1.8);
-      target.current.set(
-        room.center[0] + (Math.random() * 2 - 1) * hw,
-        0,
-        room.center[1] + (Math.random() * 2 - 1) * hd
-      );
+      const pt = getRandomWalkablePointInRoom(room, 0.45);
+      target.current.set(pt.x, 0, pt.z);
+      stuckFrames.current = 0;
     }
 
     // Ambient chatter decision
@@ -115,16 +136,37 @@ export function LivingNPC({
     toTarget.y = 0;
     const dist = toTarget.length();
 
-    if (!isParty && dist > 0.4) {
+    if (!isParty && dist > 0.5) {
       toTarget.normalize();
-      const speed = 2.8;
-      pos.current.addScaledVector(toTarget, speed * dt);
-      collideWalls(pos.current, 0.4);
+      const speed = 2.4;
+      const prevX = pos.current.x;
+      const prevZ = pos.current.z;
+
+      // Predictive movement step with zero penetration and avatar-to-avatar collision
+      const step = moveWithSliding(pos.current, toTarget.x * speed * dt, toTarget.z * speed * dt, 0.45, housemate.id);
+      pos.current.x = step.x;
+      pos.current.z = step.z;
+      updateAvatarCollider(housemate.id, pos.current.x, pos.current.z, 0.45);
+
       yaw.current = Math.atan2(toTarget.x, toTarget.z);
+
+      // Stuck detection: if NPC cannot make forward progress, reroute cleanly
+      const moved = Math.hypot(pos.current.x - prevX, pos.current.z - prevZ);
+      if (moved < speed * dt * 0.25) {
+        stuckFrames.current += 1;
+        if (stuckFrames.current > 8) {
+          const pt = getRandomWalkablePointInRoom(room, 0.45);
+          target.current.set(pt.x, 0, pt.z);
+          stuckFrames.current = 0;
+        }
+      } else {
+        stuckFrames.current = 0;
+      }
 
       if (!isWalking) setIsWalking(true);
     } else {
       if (isWalking) setIsWalking(false);
+      stuckFrames.current = 0;
       if (isParty) {
         // Face the camera-ish and groove
         yaw.current += dt * 0.5;
@@ -153,8 +195,10 @@ export function LivingNPC({
       accent={housemate.accentColor}
       emoji={housemate.avatar}
       name={housemate.nickname}
+      gender={housemate.gender}
       isWalking={isWalking}
       isDancing={isParty}
+      animOverride={animOverride}
       isNearby={isNearby}
       speechBubble={speechBubble}
       skinTone={housemate.skinTone}

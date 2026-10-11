@@ -19,6 +19,12 @@ import { TourSpotlight } from './TourSpotlight';
 import { useGame } from '../store';
 import type { Housemate } from '../types';
 
+import {
+  getParquetTexture,
+  getMarbleTexture,
+  getAcousticSlatTexture,
+} from './textures';
+
 const NO_RAY: () => null = () => null;
 
 export function Scene({
@@ -59,18 +65,40 @@ export function Scene({
         <meshStandardMaterial color="#e2e8f0" roughness={0.8} />
       </mesh>
 
-      {/* Room Floor Base Slabs with Polished Colors */}
-      {ROOM_DEFS.map((r) => (
-        <mesh
-          key={r.id}
-          position={[r.center[0], 0.03, r.center[1]]}
-          receiveShadow
-          raycast={NO_RAY}
-        >
-          <boxGeometry args={[r.size[0], 0.06, r.size[1]]} />
-          <meshStandardMaterial color={r.floor} roughness={0.75} />
-        </mesh>
-      ))}
+      {/* Room Floor Base Slabs with Procedural Textures */}
+      {ROOM_DEFS.map((r) => {
+        let floorMap = null;
+        let roughness = 0.7;
+        let metalness = 0.05;
+        if (r.id === 'Lounge' || r.id === 'HoH Suite') {
+          floorMap = getParquetTexture(4, 4);
+          roughness = 0.35;
+        } else if (r.id === 'Kitchen') {
+          floorMap = getMarbleTexture(3, 3);
+          roughness = 0.15;
+          metalness = 0.1;
+        } else if (r.id === 'Diary Room') {
+          floorMap = getAcousticSlatTexture(4, 3);
+          roughness = 0.85;
+        }
+
+        return (
+          <mesh
+            key={r.id}
+            position={[r.center[0], 0.03, r.center[1]]}
+            receiveShadow
+            raycast={NO_RAY}
+          >
+            <boxGeometry args={[r.size[0], 0.06, r.size[1]]} />
+            <meshStandardMaterial
+              color={floorMap ? '#ffffff' : r.floor}
+              map={floorMap ?? undefined}
+              roughness={roughness}
+              metalness={metalness}
+            />
+          </mesh>
+        );
+      })}
 
       {/* Floating Room Identity Badges */}
       {ROOM_DEFS.map((r) => (
@@ -89,7 +117,7 @@ export function Scene({
         </Html>
       ))}
 
-      {/* Soundstage & Compound Walls */}
+      {/* Soundstage & Compound Walls with Architectural Skirting */}
       {WALLS.map((w, i) => (
         <group key={`wall-${i}`}>
           <mesh
@@ -101,9 +129,22 @@ export function Scene({
             <boxGeometry args={[w.size[0], w.height, w.size[1]]} />
             <meshStandardMaterial
               color={w.color ?? (w.kind === 'compound' ? '#cbd5e1' : '#e2e8f0')}
-              roughness={w.kind === 'interior' ? 0.6 : 0.8}
+              roughness={w.kind === 'interior' ? 0.5 : 0.8}
             />
           </mesh>
+
+          {/* Architectural Skirting / Baseboard along Interior Wall Bases */}
+          {w.kind === 'interior' && (
+            <mesh
+              position={[w.center[0], 0.08, w.center[1]]}
+              receiveShadow
+              raycast={NO_RAY}
+            >
+              <boxGeometry args={[w.size[0] + 0.04, 0.16, w.size[1] + 0.04]} />
+              <meshStandardMaterial color="#f8fafc" roughness={0.3} />
+            </mesh>
+          )}
+
           {/* Decorative Coping for Outer Compound Walls */}
           {w.kind === 'compound' && (
             <mesh

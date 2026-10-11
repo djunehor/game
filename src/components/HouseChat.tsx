@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import { useNet } from '../engine/net';
 import { multiplayer } from '../engine/multiplayer';
+import { useGame } from '../store';
 
 export function HouseChat() {
   const chat = useNet((s) => s.chat);
   const connected = useNet((s) => s.connected);
   const houseName = useNet((s) => s.houseName);
   const liveCount = useNet((s) => s.liveCount);
+  const player = useGame((s) => s.state?.player);
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
 
   const send = () => {
     const t = text.trim();
     if (!t) return;
-    multiplayer.sendChat(t);
+    multiplayer.sendChat(t, player ? { id: player.id, name: player.nickname, avatar: player.avatar } : undefined);
     setText('');
   };
 
@@ -48,7 +50,11 @@ export function HouseChat() {
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && send()}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') send();
+              }}
+              onKeyUp={(e) => e.stopPropagation()}
               placeholder="Chat to the house…"
               className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 text-sm text-white outline-none placeholder:text-white/40 focus:bg-white/15"
             />

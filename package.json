@@ -11,7 +11,7 @@
     "typecheck:server": "tsc -p tsconfig.server.json",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler deploy",
-    "test": "tsx scripts/engine-test.ts && tsx scripts/test-interactions-logic.ts && tsx scripts/test-interactions-ui.tsx && tsx scripts/test-combinations.ts",
+    "test": "tsx tests/engine-test.ts && tsx tests/test-interactions-logic.ts && tsx tests/test-interactions-ui.tsx && tsx tests/test-avatar-customization-logic.ts && tsx tests/test-mocap-animations-logic.ts && tsx tests/test-solid-collision-logic.ts && tsx tests/test-root-motion.ts && tsx tests/test-combinations.ts && tsx tests/test-voice-logic.ts",
     "test:server": "tsx server/houseManager.test.ts && tsx server/gameState.test.ts && tsx server/persist.test.ts && tsx server/accounts.test.ts && tsx server/server.test.ts && tsx server/sharedState.test.ts && tsx server/auth.test.ts && tsx server/onboarding.test.ts",
     "test:worker": "tsx worker/ws-verify.test.ts",
     "test:smoke": "node scripts/smoke-test.mjs"

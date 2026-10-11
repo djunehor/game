@@ -109,7 +109,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Snuggle on the red sectional sofa with your house crush.',
     effect: { sanity: 25, energy: 10, fanbaseClout: 3000 },
     log: (p) => `${p.nickname} snuggled cozily on the sofa, whispering sweet nothings.`,
-    tweet: { handle: '@ShipCentral', text: (p) => `LOOK AT THEM! The shippers are going wild on Twitter! Wedding bells soon? 🥰🚢` },
+    tweet: { handle: '@ShipCentral', text: () => `LOOK AT THEM! The shippers are going wild on Twitter! Wedding bells soon? 🥰🚢` },
   },
   {
     key: 'full_chest_callout',
@@ -221,7 +221,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Fast 2-minute Indomie with egg.',
     effect: { hunger: 20, energy: 10 },
     log: (p) => `${p.nickname} fried two eggs with spicy Indomie noodles in 3 minutes flat.`,
-    tweet: { handle: '@NoodleLovers', text: (p) => `Midnight noodles with fried egg hits different in Biggie's house 🍜😋` },
+    tweet: { handle: '@NoodleLovers', text: () => `Midnight noodles with fried egg hits different in Biggie's house 🍜😋` },
   },
 
   // --------------------------- STORE ROOM / PANTRY ---------------------------
@@ -312,7 +312,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Late-night hot tub soak with bubbles and gossip.',
     effect: { sanity: 30, energy: 15, fanbaseClout: 2200 },
     log: (p) => `${p.nickname} soaked in the hot jacuzzi bubbles while listening to music.`,
-    tweet: { handle: '@JacuzziWatch', text: (p) => `Late night Jacuzzi gist is always where the real truth comes out 🛁👀` },
+    tweet: { handle: '@JacuzziWatch', text: () => `Late night Jacuzzi gist is always where the real truth comes out 🛁👀` },
   },
   {
     key: 'laundry_wash',
@@ -322,7 +322,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Scrub clothes on the washboard beside the outdoor drying lines.',
     effect: { houseStanding: 6, sanity: 10, energy: -10 },
     log: (p) => `${p.nickname} washed a tub of clothes and hung them out in the garden sun.`,
-    tweet: { handle: '@LaundryGist', text: (p) => `Nothing beats laundry day gossip in the garden courtyard 🧺☀️` },
+    tweet: { handle: '@LaundryGist', text: () => `Nothing beats laundry day gossip in the garden courtyard 🧺☀️` },
   },
   {
     key: 'sun_lounger',
@@ -381,7 +381,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Whisper conspiracy plans beneath the duvet to evade Big Brother’s microphones.',
     effect: { sanity: 15, fanbaseClout: 2500, houseStanding: -6 },
     log: (p) => `${p.nickname} slipped under the duvet with an ally to whisper confidential plots.`,
-    tweet: { handle: '@DuvetDetectives', text: (p) => `Under the duvet movement spotted! What are they scheming down there? 🛌👀` },
+    tweet: { handle: '@DuvetDetectives', text: () => `Under the duvet movement spotted! What are they scheming down there? 🛌👀` },
   },
   {
     key: 'wardrobe_change',
@@ -411,7 +411,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Braid hair or get a clean haircut from a housemate.',
     effect: { sanity: 20, houseStanding: 8, fanbaseClout: 1500 },
     log: (p) => `${p.nickname} spent two hours getting fresh cornrows from a housemate.`,
-    tweet: { handle: '@BBNaijaBeauty', text: (p) => `Look at those clean lines! Salon day in the bedroom was a massive success 💈✨` },
+    tweet: { handle: '@BBNaijaBeauty', text: () => `Look at those clean lines! Salon day in the bedroom was a massive success 💈✨` },
   },
   {
     key: 'pillow_fight',
@@ -441,7 +441,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Brush teeth and apply skincare while exchanging classified house secrets.',
     effect: { sanity: 15, fanbaseClout: 1500 },
     log: (p) => `${p.nickname} leaned over the bathroom vanity and whispered hot secrets while applying lotion.`,
-    tweet: { handle: '@BathroomLeaks', text: (p) => `The bathroom mirror knows more secrets than Biggie himself! 💄🤫` },
+    tweet: { handle: '@BathroomLeaks', text: () => `The bathroom mirror knows more secrets than Biggie himself! 💄🤫` },
   },
   {
     key: 'shower_romance',
@@ -451,7 +451,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Intimate conversation near the glass shower cubicle.',
     effect: { fanbaseClout: 3500, sanity: 15, houseStanding: -5 },
     log: (p) => `${p.nickname} shared a charged, steamy moment in the bathroom doorway.`,
-    tweet: { handle: '@ShowerCamWatch', text: (p) => `The chemistry in that bathroom is boiling over! Shippers are having a field day 🔥🧖` },
+    tweet: { handle: '@ShowerCamWatch', text: () => `The chemistry in that bathroom is boiling over! Shippers are having a field day 🔥🧖` },
   },
 
   // --------------------------- HOH SUITE ---------------------------
@@ -496,7 +496,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     effect: { houseStanding: 8, sanity: 15, fanbaseClout: 2000 },
     requiresHoH: true,
     log: (p) => `${p.nickname} welcomed their key ally into the VIP suite to solidify their grand alliance.`,
-    tweet: { handle: '@PowerCouple', text: (p) => `The alliance is sealed in the HoH suite! Unstoppable duo 👑🤝` },
+    tweet: { handle: '@PowerCouple', text: () => `The alliance is sealed in the HoH suite! Unstoppable duo 👑🤝` },
   },
   {
     key: 'veto_power',
@@ -589,7 +589,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Deliver the live theatrical wager performance to earn the 100% house shopping budget.',
     effect: { bbCoins: 800, fanbaseClout: 4000, houseStanding: 10, energy: -25 },
     log: (p) => `${p.nickname} delivered an emotional monologue that clinched the 100% Wager win!`,
-    tweet: { handle: '@WagerJudges', text: (p) => `STAND UP AND CLAP! The house won their 100% Wager! Incredible performance 🎭👏` },
+    tweet: { handle: '@WagerJudges', text: () => `STAND UP AND CLAP! The house won their 100% Wager! Incredible performance 🎭👏` },
   },
   {
     key: 'obstacle_drills',
@@ -701,7 +701,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     effect: { houseStanding: 10, fanbaseClout: 2500, sanity: 20 },
     requiresHoH: true,
     log: (p) => `${p.nickname} officially appointed their Deputy Head of House, cementing an unbeatable alliance!`,
-    tweet: { handle: '@HoHLeadership', text: (p) => `Deputy HoH chosen! The royal duo is set for the week 👑🤝` },
+    tweet: { handle: '@HoHLeadership', text: () => `Deputy HoH chosen! The royal duo is set for the week 👑🤝` },
   },
   {
     key: 'dual_house_clash',
@@ -711,7 +711,7 @@ export const ROOM_ACTIONS: RoomAction[] = [
     hint: 'Compete in Level 1 vs Level 2 house rivalry for shopping budget dominance.',
     effect: { energy: -20, fanbaseClout: 3500, bbCoins: 600 },
     log: (p) => `${p.nickname} championed their house wing in the epic Level 1 vs Level 2 arena battle!`,
-    tweet: { handle: '@BattleOfTheHouses', text: (p) => `LEVEL 1 vs LEVEL 2! The rivalry between the wings is boiling over ⚔️🔥` },
+    tweet: { handle: '@BattleOfTheHouses', text: () => `LEVEL 1 vs LEVEL 2! The rivalry between the wings is boiling over ⚔️🔥` },
   },
   {
     key: 'pool_party_dance',

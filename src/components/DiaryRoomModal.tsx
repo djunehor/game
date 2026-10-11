@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DIARY_SESSIONS, DiaryOption } from '../data/diaryRoom';
 import { useGame } from '../store';
 import { sound } from '../engine/sound';
+import { voice } from '../engine/voice';
 import { Modal } from './Modal';
 import { resetInput } from '../three/input';
 import type { GameState, Housemate } from '../types';
@@ -15,6 +16,9 @@ export function DiaryRoomModal({
 }) {
   useEffect(() => {
     resetInput();
+    return () => {
+      voice.stop();
+    };
   }, []);
 
   const storePlayer = useGame((s) => s.state?.player);
@@ -23,12 +27,19 @@ export function DiaryRoomModal({
   const [sessionIndex, setSessionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<DiaryOption | null>(null);
 
-  if (!player) return null;
-
   const currentSession = DIARY_SESSIONS[sessionIndex % DIARY_SESSIONS.length];
+
+  useEffect(() => {
+    if (currentSession?.question) {
+      voice.speakBiggie(currentSession.question);
+    }
+  }, [sessionIndex, currentSession?.question]);
+
+  if (!player) return null;
 
   const handleSelect = (option: DiaryOption) => {
     setSelectedOption(option);
+    voice.speakBiggie(option.biggieReply);
     sound.playRewardChime();
 
     // Apply outcome to game state

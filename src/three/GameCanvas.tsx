@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
+import * as THREE from 'three';
 import { Scene } from './Scene';
 import { Player } from './Player';
 import type { Housemate } from '../types';
@@ -14,11 +16,18 @@ export function GameCanvas({
     <Canvas
       shadows
       dpr={[1, 2]}
+      gl={{
+        antialias: true,
+        toneMapping: THREE.ACESFilmicToneMapping,
+        toneMappingExposure: 1.15,
+      }}
       camera={{ position: [-16, 14, 24], fov: 50, near: 0.5, far: 300 }}
       className="absolute inset-0"
     >
-      <Scene onTalk={onTalk} onOpenDiaryRoom={onOpenDiaryRoom} />
-      <Player />
+      <Suspense fallback={null}>
+        <Scene onTalk={onTalk} onOpenDiaryRoom={onOpenDiaryRoom} />
+        <Player />
+      </Suspense>
     </Canvas>
   );
 }

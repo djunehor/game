@@ -88,6 +88,16 @@ class MultiplayerClient {
     this.onDisconnect = opts.onDisconnect;
     this.pendingJoin = opts.join ?? null;
     this.manualClose = false;
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      if (opts.join) {
+        console.log('[multiplayer] Socket already open, sending JOIN immediately:', opts.join.nickname);
+        this.send({ type: 'JOIN', player: opts.join, token: getToken() });
+        this.pendingJoin = null;
+      }
+      return;
+    }
+
     this.open();
   }
 
@@ -203,8 +213,26 @@ class MultiplayerClient {
     this.send({ type: 'MOVE', ...payload });
   }
 
-  public sendChat(text: string) {
-    this.send({ type: 'CHAT', text });
+  public sendChat(text: string, sender?: { id: string; name: string; avatar: string }) {
+    const netState = useNet.getState();
+    if (netState.houseId && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      console.log('[multiplayer] Sending chat to house server:', text);
+      this.send({ type: 'CHAT', text });
+    } else {
+      console.log('[multiplayer] Sending chat locally (offline/single-player fallback):', text);
+      useNet.setState((s) => ({
+        chat: [
+          ...s.chat,
+          {
+            id: `c-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            senderId: sender?.id ?? netState.selfId ?? 'local-player',
+            senderName: sender?.name ?? 'You',
+            senderAvatar: sender?.avatar ?? '😎',
+            text,
+          },
+        ].slice(-60),
+      }));
+    }
   }
 
   public sendAction(description: string) {

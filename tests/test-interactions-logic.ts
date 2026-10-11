@@ -186,21 +186,21 @@ collideWalls(spawnPos, 0.5);
 assert(spawnPos.x === PLAYER_SPAWN[0] && spawnPos.z === PLAYER_SPAWN[1], 'Player spawn position is completely clear of walls');
 
 // Test Doorway Clearances: doorway centers should allow passage
-const kitchenDoorway = { x: -16, z: -5 };
+const kitchenDoorway = { x: -10, z: -4 };
 collideWalls(kitchenDoorway, 0.5);
-assert(Math.abs(kitchenDoorway.x - (-16)) < 0.01 && Math.abs(kitchenDoorway.z - (-5)) < 0.01, 'Kitchen to Lounge doorway is open and navigable');
+assert(Math.abs(kitchenDoorway.x - (-10)) < 0.01 && Math.abs(kitchenDoorway.z - (-4)) < 0.01, 'Kitchen to Lounge open atrium is open and navigable');
 
-const bedroomDoorway = { x: -16, z: 12.5 };
+const bedroomDoorway = { x: -8, z: 12 };
 collideWalls(bedroomDoorway, 0.5);
-assert(Math.abs(bedroomDoorway.x - (-16)) < 0.01 && Math.abs(bedroomDoorway.z - 12.5) < 0.01, 'Lounge to Bedroom doorway is open and navigable');
+assert(Math.abs(bedroomDoorway.x - (-8)) < 0.01 && Math.abs(bedroomDoorway.z - 12) < 0.01, 'Lounge to Bedroom doorway is open and navigable');
 
-const diaryDoorway = { x: -5, z: 4 };
+const diaryDoorway = { x: -15, z: 18 };
 collideWalls(diaryDoorway, 0.5);
-assert(Math.abs(diaryDoorway.x - (-5)) < 0.01 && Math.abs(diaryDoorway.z - 4) < 0.01, 'Diary Room soundproof entrance is open and navigable');
+assert(Math.abs(diaryDoorway.x - (-15)) < 0.01 && Math.abs(diaryDoorway.z - 18) < 0.01, 'Diary Room soundproof entrance is open and navigable');
 
-const gardenDoorway = { x: 9, z: 4 };
+const gardenDoorway = { x: -1, z: 3 };
 collideWalls(gardenDoorway, 0.5);
-assert(Math.abs(gardenDoorway.x - 9) < 0.01 && Math.abs(gardenDoorway.z - 4) < 0.01, 'Garden patio sliding glass entrance is open and navigable');
+assert(Math.abs(gardenDoorway.x - (-1)) < 0.01 && Math.abs(gardenDoorway.z - 3) < 0.01, 'Garden patio sliding glass entrance is open and navigable');
 
 console.log('→ Testing Ayo Olopon Room Action & Station');
 import { ROOM_ACTIONS, applyAction } from '../src/engine/actions';
@@ -263,6 +263,40 @@ for (const action of ROOM_ACTIONS) {
   const res = applyAction(p, action);
   assert(typeof res.logText === 'string' && res.logText.length > 5, `Action ${action.key} produces valid log message`);
 }
+
+console.log('→ Testing Input Typing Target Suppression Logic');
+import { isTypingTarget } from '../src/three/input';
+
+assert(isTypingTarget({ tagName: 'INPUT' } as unknown as HTMLElement) === true, 'isTypingTarget identifies INPUT elements');
+assert(isTypingTarget({ tagName: 'input' } as unknown as HTMLElement) === true, 'isTypingTarget identifies lowercase input elements');
+assert(isTypingTarget({ tagName: 'TEXTAREA' } as unknown as HTMLElement) === true, 'isTypingTarget identifies TEXTAREA elements');
+assert(isTypingTarget({ tagName: 'SELECT' } as unknown as HTMLElement) === true, 'isTypingTarget identifies SELECT elements');
+assert(isTypingTarget({ tagName: 'DIV', isContentEditable: true } as unknown as HTMLElement) === true, 'isTypingTarget identifies contentEditable elements');
+assert(isTypingTarget({ tagName: 'DIV', isContentEditable: false } as unknown as HTMLElement) === false, 'isTypingTarget does not match normal DIV elements');
+assert(isTypingTarget({ tagName: 'BUTTON', isContentEditable: false } as unknown as HTMLElement) === false, 'isTypingTarget does not match BUTTON elements');
+assert(isTypingTarget(null) === false, 'isTypingTarget safely handles null target');
+
+input.keys['KeyW'] = true;
+input.keys['KeyA'] = true;
+input.target = { x: 5, z: 5 };
+input.moveVector = { x: 1, y: 1 };
+resetInput();
+assert(Object.keys(input.keys).length === 0, 'resetInput clears all active keys');
+assert(input.target === null, 'resetInput clears target point');
+assert(input.moveVector.x === 0 && input.moveVector.y === 0, 'resetInput zeroes out move vector');
+
+console.log('→ Testing Chat Message Delivery & Persistence Logic');
+import { multiplayer } from '../src/engine/multiplayer';
+import { useNet } from '../src/engine/net';
+
+const initialChatCount = useNet.getState().chat.length;
+multiplayer.sendChat('Hello to all housemates!', { id: 'p-1', name: 'Tola', avatar: '👑' });
+const updatedChat = useNet.getState().chat;
+assert(updatedChat.length === initialChatCount + 1, 'sendChat adds message to chat log');
+const lastMsg = updatedChat[updatedChat.length - 1];
+assert(lastMsg.text === 'Hello to all housemates!', 'sendChat preserves message text');
+assert(lastMsg.senderName === 'Tola', 'sendChat preserves sender name');
+assert(lastMsg.senderAvatar === '👑', 'sendChat preserves sender avatar');
 
 console.log(`\nLogic Tests Summary: ${passed} passed, ${failed} failed`);
 if (failed > 0) {

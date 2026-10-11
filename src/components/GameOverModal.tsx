@@ -1,7 +1,7 @@
 import type { GameState } from '../types';
 import { GRAND_PRIZE } from '../types';
 import { useGame } from '../store';
-import { Modal, ModalHeader } from './Modal';
+import { Modal } from './Modal';
 
 export function GameOverModal({ state }: { state: GameState }) {
   const resetGame = useGame((s) => s.resetGame);

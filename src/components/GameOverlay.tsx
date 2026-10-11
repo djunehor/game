@@ -3,10 +3,14 @@ import { WEEK_DAYS } from '../types';
 import { ROOM_ACTIONS } from '../engine/actions';
 import { useGame } from '../store';
 
+import { useCamera } from '../three/cameraStore';
+
 export function GameOverlay({ state }: { state: GameState }) {
   const doAction = useGame((s) => s.doAction);
   const doSponsorTask = useGame((s) => s.doSponsorTask);
   const nextDay = useGame((s) => s.nextDay);
+  const cameraMode = useCamera((s) => s.mode);
+  const toggleCamera = useCamera((s) => s.toggleMode);
 
   const { phase, phaseDone, player } = state;
   const dayName = WEEK_DAYS[state.day] ?? '?';
@@ -31,10 +35,23 @@ export function GameOverlay({ state }: { state: GameState }) {
 
   return (
     <>
+      {/* Camera View Mode Toggle Button */}
+      <div className="absolute top-18 right-4 z-20">
+        <button
+          onClick={toggleCamera}
+          className="flex items-center gap-1.5 rounded-full border border-white/20 bg-ink/80 px-3 py-1.5 text-xs font-black text-white shadow-xl backdrop-blur transition hover:scale-105 hover:bg-ink active:scale-95"
+          title="Toggle between Human Eye-Level View and Overhead View (Key: V)"
+        >
+          <span>{cameraMode === 'human' ? '🚶 Human View' : '🗺️ Bird’s Eye'}</span>
+          <span className="rounded bg-white/20 px-1 py-0.5 text-[10px] font-bold text-gold">V</span>
+        </button>
+      </div>
+
       {/* Controls hint */}
       <div className="pointer-events-none absolute right-3 bottom-3 z-10 hidden text-right text-[10px] font-semibold text-white/70 drop-shadow sm:block">
         <div>WASD / arrows — move</div>
         <div>Q / E — rotate camera</div>
+        <div>V — toggle camera ({cameraMode === 'human' ? 'Human' : 'Overview'})</div>
         <div>F / click — talk & interact</div>
         <div>Shift — sprint</div>
       </div>

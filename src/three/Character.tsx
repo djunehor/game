@@ -1,7 +1,11 @@
-import { useRef } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
+import { Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { SkeletonUtils } from 'three-stdlib';
+import { useCamera } from './cameraStore';
+import { stripRootMotion } from './rootMotion';
+import type { Hairstyle, Gender } from '../types';
 
 export interface CharacterProps {
   position: [number, number, number];
@@ -9,189 +13,178 @@ export interface CharacterProps {
   accent: string;
   emoji: string;
   name: string;
+  gender?: Gender;
   isPlayer?: boolean;
   isWalking?: boolean;
   isDancing?: boolean;
+  animOverride?: 'idle' | 'walk' | 'dance' | 'celebrate' | 'shock' | 'angry' | 'thumbsup' | null;
   skinTone?: string;
-  hairstyle?: import('../types').Hairstyle;
+  hairstyle?: Hairstyle;
   speechBubble?: string | null;
   isNearby?: boolean;
   onTalk?: () => void;
 }
 
+// -------------------------------------------------------------
+// Realistic Skinned Rigged 3D Human Avatar (GLB Mesh + PBR Materials)
+// -------------------------------------------------------------
+export function RealHumanModel({
+  gender = 'M',
+  accent,
+  skinTone,
+  isWalking = false,
+  isDancing = false,
+  animOverride = null,
+}: {
+  gender?: Gender;
+  accent: string;
+  skinTone?: string;
+  isWalking?: boolean;
+  isDancing?: boolean;
+  animOverride?: 'idle' | 'walk' | 'dance' | 'celebrate' | 'shock' | 'angry' | 'thumbsup' | null;
+}) {
+  const modelUrl = gender === 'F' ? '/models/female_avatar.glb' : '/models/avatar.glb';
+  const modelGltf = useGLTF(modelUrl);
+  const walkGltf = useGLTF('/models/anim_walk.glb');
+  const idleGltf = useGLTF('/models/anim_idle.glb');
+  const danceGltf = useGLTF('/models/anim_dance.glb');
+  const celebrateGltf = useGLTF('/models/anim_celebrate.glb');
+  const shockGltf = useGLTF('/models/anim_shock.glb');
+  const angryGltf = useGLTF('/models/anim_angry.glb');
+
+  // Clone skinned mesh so each housemate has an independent skeleton rig
+  const clone = useMemo(() => {
+    const c = SkeletonUtils.clone(modelGltf.scene);
+    c.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        const mesh = child as THREE.Mesh;
+        // Apply signature outfit accent color to top garments only if separated
+        if (mesh.name === 'Wolf3D_Outfit_Top') {
+          if (mesh.material && !Array.isArray(mesh.material)) {
+            mesh.material = mesh.material.clone();
+            (mesh.material as THREE.MeshStandardMaterial).color = new THREE.Color(accent);
+          }
+        }
+      }
+    });
+    return c;
+  }, [modelGltf.scene, accent, skinTone]);
+
+  // Create independent AnimationMixer on the cloned skeleton
+  const mixer = useMemo(() => new THREE.AnimationMixer(clone), [clone]);
+
+  // Action blending: Idle vs Walking vs Dancing vs Mocap Emotes
+  const activeActionRef = useRef<THREE.AnimationAction | null>(null);
+
+  useEffect(() => {
+    const idleClip = stripRootMotion(idleGltf.animations[0]);
+    const walkClip = stripRootMotion(walkGltf.animations[0]);
+    const danceClip = stripRootMotion(danceGltf.animations[0]);
+    const celebrateClip = stripRootMotion(celebrateGltf.animations[0]);
+    const shockClip = stripRootMotion(shockGltf.animations[0]);
+    const angryClip = stripRootMotion(angryGltf.animations[0]);
+
+    const idleAction = idleClip ? mixer.clipAction(idleClip) : null;
+    const walkAction = walkClip ? mixer.clipAction(walkClip) : null;
+    const danceAction = danceClip ? mixer.clipAction(danceClip) : null;
+    const celebrateAction = celebrateClip ? mixer.clipAction(celebrateClip) : null;
+    const shockAction = shockClip ? mixer.clipAction(shockClip) : null;
+    const angryAction = angryClip ? mixer.clipAction(angryClip) : null;
+
+    let targetAction = idleAction;
+    if (animOverride === 'celebrate' && celebrateAction) {
+      targetAction = celebrateAction;
+    } else if (animOverride === 'shock' && shockAction) {
+      targetAction = shockAction;
+    } else if (animOverride === 'angry' && angryAction) {
+      targetAction = angryAction;
+    } else if ((animOverride === 'dance' || isDancing) && danceAction) {
+      targetAction = danceAction;
+    } else if ((animOverride === 'walk' || isWalking) && walkAction) {
+      targetAction = walkAction;
+    }
+
+    if (targetAction && targetAction !== activeActionRef.current) {
+      const prevAction = activeActionRef.current;
+      targetAction.reset();
+      if (prevAction) {
+        targetAction.play();
+        prevAction.crossFadeTo(targetAction, 0.25, true);
+      } else {
+        targetAction.fadeIn(0.2).play();
+      }
+      activeActionRef.current = targetAction;
+    }
+  }, [
+    mixer,
+    isWalking,
+    isDancing,
+    animOverride,
+    idleGltf.animations,
+    walkGltf.animations,
+    danceGltf.animations,
+    celebrateGltf.animations,
+    shockGltf.animations,
+    angryGltf.animations,
+  ]);
+
+  useFrame((_, delta) => {
+    mixer.update(delta);
+  });
+
+  return <primitive object={clone} position={[0, 0, 0]} rotation={[0, 0, 0]} />;
+}
+
+// -------------------------------------------------------------
+// Main Character Component (Player + AI Housemates + Networked Players)
+// -------------------------------------------------------------
 export function Character({
   position,
   yaw = 0,
   accent,
   emoji,
   name,
+  gender = 'M',
   isPlayer,
   isWalking = false,
   isDancing = false,
+  animOverride = null,
   skinTone = '#c98a5b',
-  hairstyle = 'lowcut',
   speechBubble,
   isNearby = false,
   onTalk,
 }: CharacterProps) {
-  const bodyRef = useRef<THREE.Group>(null);
-  const leftLegRef = useRef<THREE.Mesh>(null);
-  const rightLegRef = useRef<THREE.Mesh>(null);
-  const leftArmRef = useRef<THREE.Mesh>(null);
-  const rightArmRef = useRef<THREE.Mesh>(null);
-  const headRef = useRef<THREE.Group>(null);
-
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-
-    if (isDancing) {
-      const danceFreq = 6;
-      const bounce = Math.abs(Math.sin(t * danceFreq)) * 0.16 + 0.05;
-      const sway = Math.sin(t * danceFreq * 0.5) * 0.25;
-      const armWave = Math.sin(t * danceFreq) * 0.5;
-
-      if (bodyRef.current) {
-        bodyRef.current.position.y = bounce;
-        bodyRef.current.rotation.y = sway;
-        bodyRef.current.rotation.z = 0;
-      }
-      if (leftArmRef.current) leftArmRef.current.rotation.x = -1.3 + armWave;
-      if (rightArmRef.current) rightArmRef.current.rotation.x = -1.3 - armWave;
-      if (leftLegRef.current) leftLegRef.current.rotation.x = Math.sin(t * danceFreq) * 0.3;
-      if (rightLegRef.current) rightLegRef.current.rotation.x = -Math.sin(t * danceFreq) * 0.3;
-      if (headRef.current) headRef.current.rotation.z = Math.sin(t * danceFreq * 0.5) * 0.12;
-    } else if (isWalking) {
-      const stepFreq = 14;
-      const legSwing = Math.sin(t * stepFreq) * 0.45;
-      const bounce = Math.abs(Math.sin(t * stepFreq)) * 0.08;
-      const tilt = Math.cos(t * stepFreq * 0.5) * 0.04;
-
-      if (bodyRef.current) {
-        bodyRef.current.position.y = bounce;
-        bodyRef.current.rotation.z = tilt;
-        bodyRef.current.rotation.y = 0;
-      }
-      if (leftLegRef.current) leftLegRef.current.rotation.x = legSwing;
-      if (rightLegRef.current) rightLegRef.current.rotation.x = -legSwing;
-      if (leftArmRef.current) leftArmRef.current.rotation.x = -legSwing * 0.7;
-      if (rightArmRef.current) rightArmRef.current.rotation.x = legSwing * 0.7;
-      if (headRef.current) headRef.current.rotation.z = -tilt * 0.5;
-    } else {
-      // Idle breathing
-      const idleFreq = 2.4;
-      const breathe = Math.sin(t * idleFreq + (name.length || 0)) * 0.02;
-      if (bodyRef.current) {
-        bodyRef.current.position.y = breathe;
-        bodyRef.current.rotation.z = 0;
-        bodyRef.current.rotation.y = 0;
-      }
-      if (leftLegRef.current) leftLegRef.current.rotation.x = 0;
-      if (rightLegRef.current) rightLegRef.current.rotation.x = 0;
-      if (leftArmRef.current) leftArmRef.current.rotation.x = 0;
-      if (rightArmRef.current) rightArmRef.current.rotation.x = 0;
-      if (headRef.current) headRef.current.rotation.z = 0;
-    }
-  });
+  const rootRef = useRef<THREE.Group>(null);
+  const cameraMode = useCamera((s) => s.mode);
 
   return (
-    <group
-      position={position}
-      rotation={[0, yaw, 0]}
-      onClick={(e) => {
-        if (!isPlayer && onTalk) {
-          e.stopPropagation();
-          onTalk();
-        }
-      }}
-      onPointerOver={(e) => {
-        if (!isPlayer) {
-          e.stopPropagation();
-          document.body.style.cursor = 'pointer';
-        }
-      }}
-      onPointerOut={() => {
-        if (!isPlayer) {
-          document.body.style.cursor = 'auto';
-        }
-      }}
-    >
-      {/* Root animated body container */}
-      <group ref={bodyRef}>
-        {/* Torso / Clothes */}
-        <mesh position={[0, 0.95, 0]} castShadow>
-          <capsuleGeometry args={[0.34, 0.65, 8, 16]} />
-          <meshStandardMaterial color={accent} roughness={0.5} />
-        </mesh>
-
-        {/* Neck collar */}
-        <mesh position={[0, 1.35, 0]}>
-          <cylinderGeometry args={[0.2, 0.28, 0.12, 16]} />
-          <meshStandardMaterial color="#1f1f1f" roughness={0.8} />
-        </mesh>
-
-        {/* Arms */}
-        <mesh ref={leftArmRef} position={[-0.42, 1.0, 0]} castShadow>
-          <capsuleGeometry args={[0.1, 0.5, 4, 8]} />
-          <meshStandardMaterial color={accent} roughness={0.5} />
-        </mesh>
-        <mesh ref={rightArmRef} position={[0.42, 1.0, 0]} castShadow>
-          <capsuleGeometry args={[0.1, 0.5, 4, 8]} />
-          <meshStandardMaterial color={accent} roughness={0.5} />
-        </mesh>
-
-        {/* Head assembly */}
-        <group ref={headRef} position={[0, 1.65, 0]}>
-          {/* Head sphere */}
-          <mesh castShadow>
-            <sphereGeometry args={[0.28, 24, 24]} />
-            <meshStandardMaterial color={skinTone} roughness={0.7} />
-          </mesh>
-
-          {/* Hair */}
-          <Hair hairstyle={hairstyle} color={isPlayer ? '#1b1b1b' : '#2b231d'} />
-
-          {/* Sunglasses or Eyes */}
-          {isPlayer ? (
-            // Stylish dark shades
-            <mesh position={[0, 0.04, 0.26]}>
-              <boxGeometry args={[0.38, 0.1, 0.08]} />
-              <meshStandardMaterial color="#0a0a0a" roughness={0.2} metalness={0.8} />
-            </mesh>
-          ) : (
-            // Eyes
-            <group position={[0, 0.04, 0.26]}>
-              <mesh position={[0.09, 0, 0]}>
-                <sphereGeometry args={[0.04, 8, 8]} />
-                <meshStandardMaterial color="#1a1a1a" />
-              </mesh>
-              <mesh position={[-0.09, 0, 0]}>
-                <sphereGeometry args={[0.04, 8, 8]} />
-                <meshStandardMaterial color="#1a1a1a" />
-              </mesh>
-            </group>
-          )}
-        </group>
-      </group>
-
-      {/* Legs (swing independently around hip joint at y=0.55) */}
-      <mesh ref={leftLegRef} position={[-0.16, 0.32, 0]} castShadow>
-        <capsuleGeometry args={[0.11, 0.42, 4, 8]} />
-        <meshStandardMaterial color="#1a202c" roughness={0.8} />
-      </mesh>
-      <mesh ref={rightLegRef} position={[0.16, 0.32, 0]} castShadow>
-        <capsuleGeometry args={[0.11, 0.42, 4, 8]} />
-        <meshStandardMaterial color="#1a202c" roughness={0.8} />
-      </mesh>
-
-      {/* Ground contact shadow */}
+    <group ref={rootRef} position={position} rotation={[0, yaw, 0]}>
+      {/* Dynamic Ground Shadow */}
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.55, 24]} />
-        <meshBasicMaterial color="#000" transparent opacity={0.22} />
+        <circleGeometry args={[0.42, 24]} />
+        <meshBasicMaterial color="#000" transparent opacity={0.3} />
       </mesh>
 
-      {/* Name tag and speech bubbles */}
-      <Html position={[0, 2.45, 0]} center distanceFactor={11} zIndexRange={[15, 0]}>
-        <div className="flex -translate-x-1/2 flex-col items-center whitespace-nowrap pointer-events-none">
+      {/* Skinned Rigged 3D Human Character Model */}
+      <RealHumanModel
+        gender={gender}
+        accent={accent}
+        skinTone={skinTone}
+        isWalking={isWalking}
+        isDancing={isDancing}
+        animOverride={animOverride}
+      />
+
+      {/* Name Tag, Prompts, and Speech Bubbles */}
+      <Html
+        position={[0, 2.05, 0]}
+        center
+        distanceFactor={cameraMode === 'human' ? 6 : 10}
+        zIndexRange={[15, 0]}
+      >
+        <div className="flex flex-col items-center whitespace-nowrap pointer-events-none">
           {/* Ambient Speech Bubble if active */}
           {speechBubble && (
             <div className="mb-2 max-w-[170px] rounded-2xl bg-white px-3 py-1.5 text-center text-[11px] font-bold text-ink shadow-xl ring-2 ring-gold/70 animate-pop-in">
@@ -214,98 +207,39 @@ export function Character({
             </button>
           )}
 
-          {/* Badge */}
-          <div
-            onClick={(e) => {
-              if (!isPlayer && onTalk) {
-                e.stopPropagation();
-                onTalk();
-              }
-            }}
-            className={`flex items-center gap-1 ${!isPlayer ? 'pointer-events-auto cursor-pointer hover:scale-105 transition-transform' : ''}`}
-          >
-            <span className="text-base drop-shadow">{emoji}</span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold shadow-md ${
-                isPlayer ? 'bg-bbn text-white ring-2 ring-white/50' : 'bg-white/95 text-ink hover:bg-gold/20'
-              }`}
+          {/* Badge: In human 3rd-person view, omit player's own badge so camera view is clean */}
+          {(!isPlayer || cameraMode === 'overhead') && (
+            <div
+              onClick={(e) => {
+                if (!isPlayer && onTalk) {
+                  e.stopPropagation();
+                  onTalk();
+                }
+              }}
+              className={`flex items-center gap-1 ${!isPlayer ? 'pointer-events-auto cursor-pointer hover:scale-105 transition-transform' : ''}`}
             >
-              {name}
-            </span>
-          </div>
+              <span className="text-base drop-shadow">{emoji}</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-extrabold shadow-md ${
+                  isPlayer ? 'bg-bbn text-white ring-2 ring-white/50' : 'bg-white/95 text-ink hover:bg-gold/20'
+                }`}
+              >
+                {name}
+              </span>
+            </div>
+          )}
         </div>
       </Html>
     </group>
   );
 }
 
-function Hair({ hairstyle, color }: { hairstyle: import('../types').Hairstyle; color: string }) {
-  switch (hairstyle) {
-    case 'afro':
-      return (
-        <mesh position={[0, 0.08, 0]} castShadow>
-          <sphereGeometry args={[0.36, 20, 20]} />
-          <meshStandardMaterial color={color} roughness={0.95} />
-        </mesh>
-      );
-    case 'lowcut':
-      return (
-        <mesh position={[0, 0.04, 0]} castShadow>
-          <sphereGeometry args={[0.29, 20, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial color={color} roughness={0.9} />
-        </mesh>
-      );
-    case 'curls':
-      return (
-        <group>
-          {Array.from({ length: 8 }).map((_, i) => {
-            const a = (i / 8) * Math.PI * 2;
-            const r = 0.22;
-            return (
-              <mesh key={i} position={[Math.cos(a) * r, 0.18, Math.sin(a) * r]} castShadow>
-                <sphereGeometry args={[0.11, 12, 12]} />
-                <meshStandardMaterial color={color} roughness={0.9} />
-              </mesh>
-            );
-          })}
-          <mesh position={[0, 0.22, 0]}>
-            <sphereGeometry args={[0.16, 12, 12]} />
-            <meshStandardMaterial color={color} roughness={0.9} />
-          </mesh>
-        </group>
-      );
-    case 'braids':
-      return (
-        <group>
-          {Array.from({ length: 8 }).map((_, i) => {
-            const a = (i / 8) * Math.PI * 2;
-            const r = 0.24;
-            return (
-              <mesh key={i} position={[Math.cos(a) * r, -0.05, Math.sin(a) * r]} rotation={[0.15, 0, 0.15]} castShadow>
-                <cylinderGeometry args={[0.035, 0.05, 0.55, 8]} />
-                <meshStandardMaterial color={color} roughness={0.85} />
-              </mesh>
-            );
-          })}
-        </group>
-      );
-    case 'locs':
-      return (
-        <group>
-          {Array.from({ length: 6 }).map((_, i) => {
-            const a = (i / 6) * Math.PI * 2;
-            const r = 0.22;
-            return (
-              <mesh key={i} position={[Math.cos(a) * r, -0.15, Math.sin(a) * r]} rotation={[0.1, 0, 0.1]} castShadow>
-                <cylinderGeometry args={[0.05, 0.06, 0.8, 8]} />
-                <meshStandardMaterial color={color} roughness={0.85} />
-              </mesh>
-            );
-          })}
-        </group>
-      );
-    case 'bald':
-    default:
-      return null;
-  }
-}
+// Preload models and animations for instant rendering
+useGLTF.preload('/models/avatar.glb');
+useGLTF.preload('/models/female_avatar.glb');
+useGLTF.preload('/models/anim_walk.glb');
+useGLTF.preload('/models/anim_idle.glb');
+useGLTF.preload('/models/anim_dance.glb');
+useGLTF.preload('/models/anim_celebrate.glb');
+useGLTF.preload('/models/anim_shock.glb');
+useGLTF.preload('/models/anim_angry.glb');

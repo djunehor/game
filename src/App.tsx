@@ -19,8 +19,8 @@ import { DialogueModal } from './components/DialogueModal';
 import { DiaryRoomModal } from './components/DiaryRoomModal';
 import { EmoteBar } from './components/EmoteBar';
 import { StoreModal } from './components/StoreModal';
-import { OnboardingModal } from './components/OnboardingModal';
 import { GuidedTourModal } from './components/GuidedTourModal';
+import { ToastContainer } from './components/ToastContainer';
 import { GameCanvas } from './three/GameCanvas';
 import { useTour } from './three/tourStore';
 import type { Housemate } from './types';
@@ -63,7 +63,7 @@ export function App() {
 
   // Connect to the multiplayer server once a game is running
   useEffect(() => {
-    if (state && !state.gameOver && !useNet.getState().connected) {
+    if (state && !state.gameOver && !useNet.getState().houseId) {
       useGame.getState().connectToHouse();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,6 +98,7 @@ export function App() {
       />
 
       {/* Overlays */}
+      <ToastContainer />
       <Hud state={state} />
 
       {/* Social Emote Bar */}

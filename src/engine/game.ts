@@ -157,7 +157,6 @@ export function initializeGame(config: CreationConfig): GameState {
 export function simulateAiDay(state: GameState): GameState {
   const housemates = state.housemates.map((h) => {
     if (h.status !== 'active') return h;
-    const drift = rnd(-4, 6);
     const cloutGain = rnd(100, 700);
     return {
       ...h,
