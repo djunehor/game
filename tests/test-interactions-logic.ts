@@ -175,7 +175,7 @@ import { WALLS, collideWalls, PLAYER_SPAWN } from '../src/three/rooms';
 assert(WALLS.length >= 15, `WALLS has comprehensive compound and room dividing walls (found ${WALLS.length})`);
 
 const compoundWalls = WALLS.filter((w) => w.kind === 'compound');
-assert(compoundWalls.length === 4, 'Four high security compound perimeter walls enclose North, South, West, and East');
+assert(compoundWalls.length >= 4, 'High security compound perimeter walls enclose North, South (with driveway gate), West, and East');
 
 const interiorWalls = WALLS.filter((w) => w.kind === 'interior');
 assert(interiorWalls.length >= 8, 'Interior partition walls separate individual rooms with real doors');

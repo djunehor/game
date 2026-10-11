@@ -21,7 +21,7 @@ export function GameCanvas({
         toneMapping: THREE.ACESFilmicToneMapping,
         toneMappingExposure: 1.15,
       }}
-      camera={{ position: [-16, 14, 24], fov: 50, near: 0.5, far: 300 }}
+      camera={{ position: [-16, 14, 24], fov: 50, near: 0.5, far: 800 }}
       className="absolute inset-0"
     >
       <Suspense fallback={null}>

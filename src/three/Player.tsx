@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Character } from './Character';
 import { input, attachInput, playerWorldPos } from './input';
@@ -10,6 +11,8 @@ import { multiplayer } from '../engine/multiplayer';
 import { useTour, TOUR_STOPS } from './tourStore';
 import { useCamera } from './cameraStore';
 import { useEmote } from './emoteStore';
+import { useVehicleStore, VEHICLE_CATALOG } from '../world/vehicleStore';
+import { VehicleVisualModel } from './StreetEnvironment';
 
 const SPEED = 9;
 const CAM_DIST = 16;
@@ -29,9 +32,35 @@ export function Player() {
   const stuckFrames = useRef(0);
   const targetStartTime = useRef(0);
 
+  const mountedVehicle = useVehicleStore((s) =>
+    s.mountedVehicleId ? s.vehicles[s.mountedVehicleId] ?? null : null
+  );
+
   useEffect(() => {
     attachInput();
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.code === 'KeyF' || e.code === 'KeyE') {
+        const currentMounted = useVehicleStore.getState().mountedVehicleId;
+        if (currentMounted) {
+          const exitPt = useVehicleStore.getState().dismountVehicle('player');
+          if (exitPt) {
+            pos.current.x = Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, exitPt[0]));
+            pos.current.z = Math.max(WORLD_BOUNDS.minZ, Math.min(WORLD_BOUNDS.maxZ, exitPt[1]));
+          }
+        } else {
+          const nearby = useVehicleStore.getState().getNearbyVehicle([pos.current.x, pos.current.z, 0], 3.8);
+          if (nearby) {
+            useVehicleStore.getState().boardVehicle(nearby.id, 'player');
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
     return () => {
+      window.removeEventListener('keydown', handleKey);
       removeAvatarCollider('player');
     };
   }, []);
@@ -115,11 +144,34 @@ export function Player() {
     const prevX = pos.current.x;
     const prevZ = pos.current.z;
 
+    const activeVehicleId = useVehicleStore.getState().mountedVehicleId;
+    const activeVehicle = activeVehicleId ? useVehicleStore.getState().vehicles[activeVehicleId] : null;
+    const vehicleDef = activeVehicle ? VEHICLE_CATALOG[activeVehicle.type] : null;
+    const activeSpeed = vehicleDef ? vehicleDef.maxSpeed : SPEED;
+
     if (moving) {
-      const step = moveWithSliding(pos.current, move.x * SPEED * dt, move.z * SPEED * dt, 0.45, 'player');
-      pos.current.x = Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, step.x));
-      pos.current.z = Math.max(WORLD_BOUNDS.minZ, Math.min(WORLD_BOUNDS.maxZ, step.z));
+      const step = moveWithSliding(
+        pos.current,
+        move.x * activeSpeed * dt,
+        move.z * activeSpeed * dt,
+        activeVehicle ? 0.8 : 0.45,
+        'player'
+      );
+      const nextX = Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, step.x));
+      const nextZ = Math.max(WORLD_BOUNDS.minZ, Math.min(WORLD_BOUNDS.maxZ, step.z));
+
+      pos.current.x = nextX;
+      pos.current.z = nextZ;
       yaw.current = Math.atan2(move.x, move.z);
+    }
+
+    if (activeVehicleId) {
+      useVehicleStore.getState().updateVehicleTransform(
+        activeVehicleId,
+        [pos.current.x, pos.current.z, 0],
+        yaw.current,
+        moving ? activeSpeed : 0
+      );
     }
 
     // Stuck detection: if target is active but walls block forward movement, cancel target
@@ -165,9 +217,10 @@ export function Player() {
       camera.lookAt(camLookAt.current);
     } else {
       const cameraMode = useCamera.getState().mode;
-      const camDist = cameraMode === 'human' ? 4.2 : CAM_DIST;
-      const camHeight = cameraMode === 'human' ? 2.1 : CAM_HEIGHT;
-      const lookY = cameraMode === 'human' ? 1.55 : 1.2;
+      const isVehicleActive = Boolean(activeVehicleId);
+      const camDist = isVehicleActive ? 22 : (cameraMode === 'human' ? 4.2 : CAM_DIST);
+      const camHeight = isVehicleActive ? 16 : (cameraMode === 'human' ? 2.1 : CAM_HEIGHT);
+      const lookY = isVehicleActive ? 1.8 : (cameraMode === 'human' ? 1.55 : 1.2);
 
       const normalCam = new THREE.Vector3(
         pos.current.x + Math.sin(camYaw.current) * camDist,
@@ -216,16 +269,42 @@ export function Player() {
 
   return (
     <group ref={group}>
+      {mountedVehicle && (
+        <>
+          <VehicleVisualModel type={mountedVehicle.type} />
+          <Html
+            position={[0, mountedVehicle.type === 'danfo_bus' ? 3.0 : 2.4, 0]}
+            center
+            distanceFactor={14}
+          >
+            <div className="flex flex-col items-center pointer-events-none whitespace-nowrap select-none">
+              <div className="flex items-center gap-2 rounded-full bg-slate-950/90 px-3 py-1 text-xs font-bold text-white shadow-2xl ring-1 ring-amber-400/50 backdrop-blur-md">
+                <span>{VEHICLE_CATALOG[mountedVehicle.type].emoji}</span>
+                <span className="text-amber-400">{VEHICLE_CATALOG[mountedVehicle.type].name}</span>
+                <span className="text-slate-500">|</span>
+                <span>{isWalking ? `${Math.round(VEHICLE_CATALOG[mountedVehicle.type].maxSpeed * 3.6)} km/h` : 'Parked'}</span>
+                <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] text-white">
+                  [F] Exit
+                </span>
+              </div>
+            </div>
+          </Html>
+        </>
+      )}
       <Character
-        position={[0, 0, 0]}
+        position={[
+          0,
+          mountedVehicle ? (mountedVehicle.type === 'bike' ? 0.35 : 0.05) : 0,
+          mountedVehicle ? (mountedVehicle.type === 'bike' ? 0.3 : 0) : 0,
+        ]}
         yaw={0}
         accent={player.accentColor}
         emoji={player.avatar}
         name={player.nickname}
         gender={player.gender}
         isPlayer
-        isWalking={isWalking}
-        animOverride={emoteAnim}
+        isWalking={mountedVehicle ? false : isWalking}
+        animOverride={mountedVehicle ? 'idle' : emoteAnim}
         skinTone={player.skinTone}
         hairstyle={player.hairstyle}
       />

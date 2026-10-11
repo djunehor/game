@@ -17,6 +17,7 @@ export const playerWorldPos = {
 };
 
 import { useCamera } from './cameraStore';
+import { useEconomyStore } from '../world/economyStore';
 
 const TRACKED = new Set([
   'KeyW', 'KeyA', 'KeyS', 'KeyD',
@@ -45,6 +46,12 @@ export function attachInput() {
     }
     if (e.code === 'KeyV') {
       useCamera.getState().toggleMode();
+      return;
+    }
+    if (e.code === 'KeyB') {
+      const econ = useEconomyStore.getState();
+      if (econ.activeShopId) econ.closeShop();
+      else econ.openShop('supermarket');
       return;
     }
     if (TRACKED.has(e.code)) {

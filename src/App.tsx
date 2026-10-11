@@ -19,6 +19,9 @@ import { DialogueModal } from './components/DialogueModal';
 import { DiaryRoomModal } from './components/DiaryRoomModal';
 import { EmoteBar } from './components/EmoteBar';
 import { StoreModal } from './components/StoreModal';
+import { WalletHUD } from './components/WalletHUD';
+import { CommerceModal } from './components/CommerceModal';
+import { TransferModal } from './components/TransferModal';
 import { GuidedTourModal } from './components/GuidedTourModal';
 import { ToastContainer } from './components/ToastContainer';
 import { GameCanvas } from './three/GameCanvas';
@@ -157,6 +160,11 @@ export function App() {
         />
       )}
       {showStore && <StoreModal state={state} onClose={() => setShowStore(false)} />}
+
+      {/* Town Commerce & Virtual Currency System */}
+      <WalletHUD />
+      <CommerceModal />
+      <TransferModal />
 
       <HouseChat />
 

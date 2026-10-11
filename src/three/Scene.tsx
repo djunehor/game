@@ -16,6 +16,7 @@ import {
 } from './Furniture';
 import { InteractiveObjects } from './InteractiveObjects';
 import { TourSpotlight } from './TourSpotlight';
+import { StreetEnvironment } from './StreetEnvironment';
 import { useGame } from '../store';
 import type { Housemate } from '../types';
 
@@ -43,15 +44,15 @@ export function Scene({
     <>
       {/* Dynamic studio lighting (day / night / party / eviction) */}
       <Lighting />
-      <fog attach="fog" args={['#bcd9ec', 60, 200]} />
+      <fog attach="fog" args={['#bcd9ec', 140, 420]} />
 
-      {/* Exterior Landscape (Outside Compound Walls) */}
+      {/* Exterior Landscape (Town Landscape & Horizon) */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -0.02, 0]}
         receiveShadow
       >
-        <planeGeometry args={[260, 260]} />
+        <planeGeometry args={[800, 800]} />
         <meshStandardMaterial color="#5ea853" roughness={0.9} />
       </mesh>
 
@@ -186,6 +187,9 @@ export function Scene({
 
       {/* 3D Head-of-House arena challenge (Monday) */}
       <HohChallenge />
+
+      {/* Admiralty Way Outdoor Street Environment & Transit Vehicles */}
+      <StreetEnvironment />
 
       {/* 3D Guided Tour Room Spotlight Beacon */}
       <TourSpotlight />

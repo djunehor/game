@@ -29,7 +29,7 @@ export const ROOM_DEFS: RoomDef[] = [
   { id: 'Garden', label: 'Resort Garden & Pool', emoji: '🌴', center: [16, -2], size: [24, 26], floor: '#5ea853', outdoor: true },
 ];
 
-export const WORLD_BOUNDS = { minX: -26, maxX: 27, minZ: -28, maxZ: 27 };
+export const WORLD_BOUNDS = { minX: -1000000, maxX: 1000000, minZ: -1000000, maxZ: 1000000 };
 
 export const PLAYER_SPAWN: [number, number] = [-10, 8]; // Open floor space in Grand Lounge
 
@@ -67,8 +67,9 @@ export const WALLS: WallDef[] = [
   // ==========================================
   // North compound wall (Z = -27.5)
   { center: [0.5, -27.5], size: [53, 1], height: 5.5, color: '#cbd5e1', kind: 'compound' },
-  // South compound wall (Z = 26.5)
-  { center: [0.5, 26.5], size: [53, 1], height: 5.5, color: '#cbd5e1', kind: 'compound' },
+  // South compound wall (Z = 26.5) - split to provide 8-meter estate driveway gate at X ∈ [-3.5, 4.5]
+  { center: [-14.75, 26.5], size: [22.5, 1], height: 5.5, color: '#cbd5e1', kind: 'compound' },
+  { center: [15.75, 26.5], size: [22.5, 1], height: 5.5, color: '#cbd5e1', kind: 'compound' },
   // West compound perimeter wall (X = -25.5)
   { center: [-25.5, -0.5], size: [1, 53], height: 5.5, color: '#cbd5e1', kind: 'compound' },
   // East compound perimeter wall (X = 26.5)
