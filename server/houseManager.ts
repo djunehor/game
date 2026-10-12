@@ -27,6 +27,7 @@ export function createHouse(name?: string): House {
       evictedId: null,
       hohId: null,
       finaleWinnerId: null,
+      finalRanks: {},
       gameOver: false,
       scores: {},
       votes: {},

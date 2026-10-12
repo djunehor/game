@@ -6,6 +6,8 @@ import { Character } from './Character';
 import { input, attachInput, playerWorldPos } from './input';
 import { roomAt, WORLD_BOUNDS, PLAYER_SPAWN, moveWithSliding } from './rooms';
 import { updateAvatarCollider, removeAvatarCollider } from './collisionStore';
+import { getNearestShopPoi, shouldRemoveOrphanedVehicle } from './InfiniteWorld';
+import { useEconomyStore } from '../world/economyStore';
 import { useGame } from '../store';
 import { multiplayer } from '../engine/multiplayer';
 import { useTour, TOUR_STOPS } from './tourStore';
@@ -41,7 +43,9 @@ export function Player() {
 
     const handleKey = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
-      if (e.code === 'KeyF' || e.code === 'KeyE') {
+
+      // [F] — board the nearest vehicle, or exit the one you are driving.
+      if (e.code === 'KeyF') {
         const currentMounted = useVehicleStore.getState().mountedVehicleId;
         if (currentMounted) {
           const exitPt = useVehicleStore.getState().dismountVehicle('player');
@@ -49,12 +53,25 @@ export function Player() {
             pos.current.x = Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, exitPt[0]));
             pos.current.z = Math.max(WORLD_BOUNDS.minZ, Math.min(WORLD_BOUNDS.maxZ, exitPt[1]));
           }
+          // If the vehicle was a streamed chunk prop whose home chunk has since
+          // unloaded, drop it so the vehicle store cannot grow without bound.
+          if (shouldRemoveOrphanedVehicle(currentMounted)) {
+            useVehicleStore.getState().removeVehicle(currentMounted);
+          }
         } else {
           const nearby = useVehicleStore.getState().getNearbyVehicle([pos.current.x, pos.current.z, 0], 3.8);
           if (nearby) {
             useVehicleStore.getState().boardVehicle(nearby.id, 'player');
           }
         }
+        return;
+      }
+
+      // [E] — open the nearest shop entrance (matches the [E] badge hint).
+      if (e.code === 'KeyE') {
+        if (useVehicleStore.getState().mountedVehicleId) return;
+        const poi = getNearestShopPoi(pos.current.x, pos.current.z);
+        if (poi) useEconomyStore.getState().openShop(poi.shopId);
       }
     };
 
@@ -291,6 +308,7 @@ export function Player() {
           </Html>
         </>
       )}
+
       <Character
         position={[
           0,

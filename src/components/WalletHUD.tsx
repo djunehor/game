@@ -29,7 +29,7 @@ export function WalletHUD() {
         </div>
       </button>
 
-      {/* Quick P2P Transfer / Spray Money Button */}
+      {/* Quick P2P Transfer / Tip Money Button */}
       <button
         type="button"
         onClick={openTransferModal}

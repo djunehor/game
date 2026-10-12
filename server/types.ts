@@ -33,6 +33,14 @@ export interface GameMember {
   __ws?: unknown;
 }
 
+export const TOP_5_PRIZES: Record<number, number> = {
+  1: 100_000_000,
+  2: 30_000_000,
+  3: 15_000_000,
+  4: 10_000_000,
+  5: 5_000_000,
+};
+
 export interface HouseState {
   week: number;
   day: number;
@@ -42,6 +50,7 @@ export interface HouseState {
   evictedId: string | null;
   hohId: string | null;
   finaleWinnerId: string | null;
+  finalRanks?: Record<string, { rank: number; prize: number }>;
   gameOver: boolean;
   scores: Record<string, number>;
   votes: Record<string, string[]>;

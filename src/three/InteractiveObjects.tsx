@@ -658,7 +658,7 @@ function StationIndicator({
       if (action?.effect.energy) effects.push(`${action.effect.energy > 0 ? '+' : ''}${action.effect.energy} Energy`);
       if (action?.effect.sanity) effects.push(`${action.effect.sanity > 0 ? '+' : ''}${action.effect.sanity} Sanity`);
       if (action?.effect.hunger) effects.push(`${action.effect.hunger > 0 ? '+' : ''}${action.effect.hunger} Hunger`);
-      if (action?.effect.bbCoins) effects.push(`${action.effect.bbCoins > 0 ? '+' : ''}${action.effect.bbCoins} BB Coins`);
+      if (action?.effect.bbCoins) effects.push(`${action.effect.bbCoins > 0 ? '+' : ''}₦${action.effect.bbCoins.toLocaleString()}`);
       if (action?.effect.fanbaseClout) effects.push(`${action.effect.fanbaseClout > 0 ? '+' : ''}${action.effect.fanbaseClout} Clout`);
 
       useToast.getState().showToast({

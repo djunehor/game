@@ -9,7 +9,7 @@ export function StoreModal({ state, onClose }: { state: GameState; onClose: () =
 
   return (
     <Modal onClose={onClose}>
-      <ModalHeader emoji="🛒" title="Biggie's Store" subtitle="Spend your BB Coins on luxuries and advantages." />
+      <ModalHeader emoji="🛒" title="Biggie's Store" subtitle="Spend your Naira on luxuries and advantages." />
 
       <div className="px-6 py-5">
         <div className="mb-4 flex items-center justify-between rounded-2xl bg-gold/10 px-4 py-3">

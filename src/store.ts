@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CreationConfig, GameState, Gender, Housemate, Profession, Room, Trait } from './types';
+import { TOP_5_PRIZES, type CreationConfig, type GameState, type Gender, type Housemate, type Profession, type Room, type Trait } from './types';
 import {
   advanceDay,
   initializeGame,
@@ -18,6 +18,7 @@ import { sound } from './engine/sound';
 import { multiplayer, type RosterMember } from './engine/multiplayer';
 import { useNet } from './engine/net';
 import { useAuth } from './engine/auth';
+import { useEconomyStore } from './world/economyStore';
 
 interface GameStore {
   state: GameState | null;
@@ -335,22 +336,56 @@ export const useGame = create<GameStore>((set, get) => ({
       log = [...log, makeLog(shared.week, shared.day, `${name} was evicted from the Biggie House.`, 'eviction')].slice(-80);
     }
 
-    if (shared.finaleWinnerId) {
+    const myRankInfo = shared.finalRanks?.[selfId];
+    if (myRankInfo) {
+      const won = myRankInfo.rank === 1;
+      const rank = myRankInfo.rank;
+      const prize = myRankInfo.prize;
+      console.log(`[client:applyServerState] Player ranked: #${rank}, prize: ₦${prize}`);
       gameOver = {
-        won: shared.finaleWinnerId === selfId,
+        won,
+        rank,
+        prize,
+        reason: won
+          ? `${player.nickname} won the finale and the ₦100,000,000 grand prize!`
+          : `${player.nickname} finished in ${rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} place and won ₦${prize.toLocaleString()}!`,
+      };
+      if (prize > 0) {
+        useEconomyStore.getState().earn(prize, `BBNaija ${won ? '1st Place Winner' : `${rank}th Place`} Cash Prize`);
+      }
+    } else if (shared.finaleWinnerId) {
+      const won = shared.finaleWinnerId === selfId;
+      const rank = won ? 1 : 2;
+      const prize = TOP_5_PRIZES[rank] ?? 0;
+      console.log(`[client:applyServerState] Finale winner resolved: ${shared.finaleWinnerId}, self: ${selfId}, won: ${won}, prize: ₦${prize}`);
+      gameOver = {
+        won,
+        rank,
+        prize,
         reason:
-          shared.finaleWinnerId === selfId
+          won
             ? `${player.nickname} won the finale and the ₦100,000,000 grand prize!`
-            : `The finale crown went to someone else. So close!`,
+            : `${player.nickname} finished in 2nd place (1st runner-up) and won ₦${prize.toLocaleString()}!`,
+      };
+      if (prize > 0) {
+        useEconomyStore.getState().earn(prize, `BBNaija ${won ? '1st Place Winner' : '2nd Place Runner-Up'} Cash Prize`);
+      }
+    } else if (shared.gameOver && player.status === 'evicted') {
+      gameOver = {
+        won: false,
+        reason: `${player.nickname} was evicted from the Biggie House.`,
       };
     }
+
+    const nextPhase: GameState['phase'] = gameOver ? 'gameover' : ((shared.phase as GameState['phase']) ?? s.phase);
+    const nextPhaseDone = gameOver ? true : (shared.phaseDone ?? s.phaseDone);
 
     const next: GameState = {
       ...s,
       week: shared.week ?? s.week,
       day: shared.day ?? s.day,
-      phase: (shared.phase as GameState['phase']) ?? s.phase,
-      phaseDone: shared.phaseDone ?? s.phaseDone,
+      phase: nextPhase,
+      phaseDone: nextPhaseDone,
       nominees: shared.nominees ?? s.nominees,
       evictedId: shared.evictedId ?? s.evictedId,
       housemates,
@@ -406,7 +441,7 @@ export const useGame = create<GameStore>((set, get) => ({
       actionsLeft: s.actionsLeft - 1,
       log: [
         ...s.log,
-        makeLog(s.week, s.day, `${s.player.nickname} completed the ${task.brand} sponsor task! +₦${task.rewardCoins.toLocaleString()} BB Coins.`, 'game'),
+        makeLog(s.week, s.day, `${s.player.nickname} completed the ${task.brand} sponsor task! +₦${task.rewardCoins.toLocaleString()}.`, 'game'),
       ].slice(-80),
       tweets: [makeTweet(`${s.player.nickname} just CRUSHED the ${task.brand} task. Brand ambassador energy! 💼✨`, '@BrandWatch'), ...s.tweets].slice(0, 40),
     };
@@ -477,6 +512,9 @@ export const useGame = create<GameStore>((set, get) => ({
       return;
     }
     const next = resolveEviction(s);
+    if (next.gameOver?.prize && next.gameOver.prize > 0) {
+      useEconomyStore.getState().earn(next.gameOver.prize, `BBNaija ${next.gameOver.won ? '1st Place Winner' : `${next.gameOver.rank}th Place`} Cash Prize`);
+    }
     sound.playDramaHit();
     persist(next);
     set({ state: next });

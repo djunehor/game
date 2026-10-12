@@ -43,9 +43,17 @@ export function App() {
   const [talkTarget, setTalkTarget] = useState<Housemate | null>(null);
   const [showDiaryRoom, setShowDiaryRoom] = useState(false);
   const [showStore, setShowStore] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [isTouch] = useState(
     () => typeof window !== 'undefined' && (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0)
   );
+  const [muted, setMuted] = useState(sound.muted);
+
+  const toggleSound = () => {
+    sound.muted = !sound.muted;
+    setMuted(sound.muted);
+    if (!sound.muted) sound.playRewardChime();
+  };
 
   // Automatically start 3D guided tour for new housemates during onboarding
   useEffect(() => {
@@ -104,50 +112,85 @@ export function App() {
       <ToastContainer />
       <Hud state={state} />
 
-      {/* Social Emote Bar */}
-      <EmoteBar />
+      {/* Social Emote Bar (Collapsible) */}
+      <EmoteBar defaultOpen={false} />
 
-      {/* Social feed toggle */}
-      <button
-        onClick={() => setShowSocial((v) => !v)}
-        className="absolute top-3 right-3 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/15 bg-ink/70 text-lg text-white shadow-lg backdrop-blur transition hover:bg-ink"
-        aria-label="Open social feed"
-      >
-        📱
-      </button>
+      {/* Top-Right Single Subtle Menu Toggle (☰) */}
+      <div className="absolute top-3 right-3 z-30">
+        <button
+          type="button"
+          onClick={() => setShowMenu((v) => !v)}
+          className="grid size-9 place-items-center rounded-2xl border border-white/20 bg-slate-950/85 hover:bg-slate-900 text-sm font-bold text-white shadow-xl backdrop-blur-md transition hover:scale-105 active:scale-95 cursor-pointer ring-1 ring-white/10"
+          aria-label="Toggle game menu"
+          title="Game Menu"
+        >
+          {showMenu ? '✕' : '☰'}
+        </button>
 
-      {/* Store toggle */}
-      <button
-        onClick={() => setShowStore((v) => !v)}
-        className="absolute top-3 right-16 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/15 bg-ink/70 text-lg text-white shadow-lg backdrop-blur transition hover:bg-ink"
-        aria-label="Open Biggie's Store"
-      >
-        🛒
-      </button>
-
-      {/* 3D Guided Tour toggle */}
-      <button
-        onClick={() => useTour.getState().startTour()}
-        className="absolute top-3 right-32 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/15 bg-ink/70 text-lg text-white shadow-lg backdrop-blur transition hover:bg-ink cursor-pointer"
-        aria-label="Open 3D Guided Tour"
-        title="3D Biggie House Tour"
-      >
-        📖
-      </button>
-
-      {/* Logout */}
-      <button
-        onClick={() => {
-          multiplayer.disconnect();
-          useAuth.getState().logout();
-          resetGame();
-        }}
-        className="absolute top-3 right-46 z-20 grid h-10 w-10 place-items-center rounded-2xl border border-white/15 bg-ink/70 text-lg text-white shadow-lg backdrop-blur transition hover:bg-ink cursor-pointer"
-        aria-label="Log out"
-        title="Log out"
-      >
-        🚪
-      </button>
+        {/* Subtle Dropdown Menu */}
+        {showMenu && (
+          <div className="absolute top-11 right-0 w-48 rounded-2xl border border-white/15 bg-slate-950/95 p-1.5 shadow-2xl backdrop-blur-xl animate-pop-in flex flex-col gap-1 text-xs font-semibold text-white">
+            <button
+              type="button"
+              onClick={() => {
+                setShowSocial(true);
+                setShowMenu(false);
+              }}
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-white/10 transition cursor-pointer"
+            >
+              <span>📱</span>
+              <span>Social Feed</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowStore(true);
+                setShowMenu(false);
+              }}
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-white/10 transition cursor-pointer"
+            >
+              <span>🛒</span>
+              <span>Biggie's Store</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                useTour.getState().startTour();
+                setShowMenu(false);
+              }}
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-white/10 transition cursor-pointer"
+            >
+              <span>📖</span>
+              <span>Guided Tour</span>
+            </button>
+            <button
+              type="button"
+              onClick={toggleSound}
+              className="flex items-center justify-between rounded-xl px-3 py-2 text-left hover:bg-white/10 transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <span>{muted ? '🔇' : '🔊'}</span>
+                <span>Sound Audio</span>
+              </div>
+              <span className="text-[10px] text-white/50">{muted ? 'Off' : 'On'}</span>
+            </button>
+            <div className="my-0.5 h-px bg-white/10" />
+            <button
+              type="button"
+              onClick={() => {
+                setShowMenu(false);
+                multiplayer.disconnect();
+                useAuth.getState().logout();
+                resetGame();
+              }}
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-red-400 hover:bg-red-500/20 transition cursor-pointer"
+            >
+              <span>🚪</span>
+              <span>Log out</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {showSocial && (
         <SocialPanel
@@ -190,8 +233,8 @@ export function App() {
       <GuidedTourModal isStandalone={state.onboardingDone !== false} />
       <HohChallengeOverlay />
       {phase === 'nominations' && !phaseDone && <NominationsModal state={state} />}
-      {phase === 'eviction' && !phaseDone && <EvictionModal state={state} />}
-      {phase === 'gameover' && <GameOverModal state={state} />}
+      {phase === 'eviction' && !phaseDone && !state.gameOver && <EvictionModal state={state} />}
+      {(phase === 'gameover' || Boolean(state.gameOver)) && <GameOverModal state={state} />}
     </div>
   );
 }

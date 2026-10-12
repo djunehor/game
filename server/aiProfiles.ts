@@ -79,7 +79,11 @@ export function generateAiHousemate(seed: number, index: number): GameMember {
   const gender = rng() > 0.5 ? 'F' : 'M';
 
   return {
-    id: `ai-${seed}-${index}`,
+    // Stable, seed-independent id (1-indexed) so it matches the client's local
+    // AI housemate ids (ai-1…ai-8). If the id changed when the roster syncs, the
+    // client would tear down and rebuild every NPC — remounting their drei <Html>
+    // name tags and triggering React's "unmount a root while rendering" warning.
+    id: `ai-${index + 1}`,
     name: `${firstName} ${lastName}`,
     nickname,
     gender,

@@ -34,6 +34,10 @@ console.log('→ AI housemates are unique and well-formed');
 const ai = houses[2].aiMembers;
 const ids = new Set(ai.map((a) => a.id));
 assert(ids.size === ai.length, 'AI ids are unique');
+assert(
+  ai.every((a, i) => a.id === `ai-${i + 1}`),
+  'AI ids use the stable seed-independent ai-<n> scheme (matches the client local AI ids)',
+);
 assert(ai.every((a) => a.nickname && a.profession && a.trait && a.isHuman === false), 'AI have full profiles');
 
 console.log(`\n${pass} passed, ${fail} failed`);

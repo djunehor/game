@@ -207,6 +207,9 @@ export const useVehicleStore = create<VehicleStoreState>((set, get) => ({
   updateVehicleTransform: (vehicleId, position, rotation, speed) => {
     const v = get().vehicles[vehicleId];
     if (!v) return;
+    // Deliberate in-place mutation (no `set`): this runs every frame while
+    // driving and is consumed imperatively by the render loop via getState().
+    // Notifying subscribers here would force a React re-render per frame.
     v.position = position;
     v.rotation = rotation;
     v.speed = speed;

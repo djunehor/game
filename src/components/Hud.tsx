@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import type { GameState } from '../types';
 import { WEEK_DAYS } from '../types';
-import { sound } from '../engine/sound';
 
 function StatBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
@@ -34,13 +32,6 @@ const phaseLabel: Record<GameState['phase'], string> = {
 export function Hud({ state }: { state: GameState }) {
   const { player } = state;
   const dayName = WEEK_DAYS[state.day] ?? '?';
-  const [muted, setMuted] = useState(sound.muted);
-
-  const toggleSound = () => {
-    sound.muted = !sound.muted;
-    setMuted(sound.muted);
-    if (!sound.muted) sound.playRewardChime();
-  };
 
   return (
     <header className="pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-ink/85 to-ink/0 px-4 pt-3 pb-6 text-white">
@@ -70,17 +61,11 @@ export function Hud({ state }: { state: GameState }) {
         </div>
 
         {/* Metrics */}
-        <div className="hidden items-center gap-4 sm:flex">
+        <div className="hidden items-center gap-4 sm:flex sm:mr-14">
           <div className="text-right">
             <div className="text-[10px] font-bold tracking-wide text-white/60 uppercase">Clout</div>
             <div className="font-display text-lg leading-none font-semibold tabular-nums text-bbn">
               {player.fanbaseClout.toLocaleString()}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-[10px] font-bold tracking-wide text-white/60 uppercase">BB Coins</div>
-            <div className="font-display text-lg leading-none font-semibold tabular-nums text-gold">
-              {player.bbCoins.toLocaleString()}
             </div>
           </div>
           <div className="text-right">
@@ -89,13 +74,6 @@ export function Hud({ state }: { state: GameState }) {
               {player.strikes}/3
             </div>
           </div>
-          <button
-            onClick={toggleSound}
-            className="pointer-events-auto ml-2 grid size-8 place-items-center rounded-xl border border-white/20 bg-white/10 text-sm font-bold text-white transition hover:bg-white/20"
-            title={muted ? 'Unmute Audio' : 'Mute Audio'}
-          >
-            {muted ? '🔇' : '🔊'}
-          </button>
         </div>
       </div>
 

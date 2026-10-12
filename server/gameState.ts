@@ -2,7 +2,7 @@
 // with collective HoH, nominations and eviction resolved on the server.
 
 import { roster } from './houseManager';
-import type { GameMember, House } from './types';
+import { type GameMember, type House, TOP_5_PRIZES } from './types';
 
 export function phaseForDay(day: number): string {
   switch (day) {
@@ -78,9 +78,17 @@ function resolveEviction(house: House): void {
 
   // Finale: two left standing — highest clout wins the house.
   if (active.length <= 2) {
-    const winner = [...active].sort((a, b) => b.fanbaseClout - a.fanbaseClout)[0];
+    const sorted = [...active].sort((a, b) => b.fanbaseClout - a.fanbaseClout);
+    const winner = sorted[0];
+    const runnerUp = sorted[1];
+    console.log(`[server:gameState] Finale reached! Active count: ${active.length}, Winner: ${winner?.nickname} (${winner?.id}), Clout: ${winner?.fanbaseClout}`);
     house.state.finaleWinnerId = winner?.id ?? null;
+    house.state.finalRanks = house.state.finalRanks || {};
+    if (winner) house.state.finalRanks[winner.id] = { rank: 1, prize: TOP_5_PRIZES[1] };
+    if (runnerUp) house.state.finalRanks[runnerUp.id] = { rank: 2, prize: TOP_5_PRIZES[2] };
     house.state.gameOver = true;
+    house.state.phase = 'gameover';
+    house.state.phaseDone = true;
     return;
   }
 
@@ -91,6 +99,15 @@ function resolveEviction(house: House): void {
     evicted.status = 'evicted';
     evicted.isNominated = false;
     house.state.evictedId = evicted.id;
+
+    // Track top 5 placements (rank 5, 4, 3)
+    if (active.length <= 5) {
+      const rank = active.length;
+      const prize = TOP_5_PRIZES[rank] ?? 0;
+      house.state.finalRanks = house.state.finalRanks || {};
+      house.state.finalRanks[evicted.id] = { rank, prize };
+      console.log(`[server:gameState] Top 5 eviction: ${evicted.nickname} (${evicted.id}) takes ${rank}th place with ₦${prize}`);
+    }
   }
 }
 
@@ -140,6 +157,7 @@ export function publicState(house: House) {
     nominees: s.nominees,
     evictedId: s.evictedId,
     finaleWinnerId: s.finaleWinnerId,
+    finalRanks: s.finalRanks ?? {},
     gameOver: s.gameOver ?? false,
     roster: roster(house).map((m) => ({
       id: m.id,

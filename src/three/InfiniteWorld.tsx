@@ -5,10 +5,70 @@ import { SolidObject } from './SolidObject';
 import { playerWorldPos } from './input';
 import { useVehicleStore, VEHICLE_CATALOG, type VehicleType } from '../world/vehicleStore';
 import { useEconomyStore } from '../world/economyStore';
+import { type ShopId } from '../data/commerceCatalog';
 import { VehicleVisualModel } from './VehicleModels';
 
 export const CHUNK_SIZE = 100;
 export const STREAM_RADIUS = 2; // 5x5 grid = 25 active chunks (500m x 500m)
+
+// ---------------------------------------------------------------------------
+// Shop POI Registry
+// Streamed chunks publish the world position of their shop entrance so the
+// player can open the nearest one with the [E] interact key (matching the
+// shortcut advertised on the on-screen badges).
+// ---------------------------------------------------------------------------
+export interface ShopPoi {
+  key: string;
+  shopId: ShopId;
+  name: string;
+  x: number;
+  z: number;
+}
+
+const shopPois = new Map<string, ShopPoi>();
+
+export function registerShopPoi(poi: ShopPoi): void {
+  shopPois.set(poi.key, poi);
+}
+
+export function unregisterShopPoi(key: string): void {
+  shopPois.delete(key);
+}
+
+export function getNearestShopPoi(x: number, z: number, maxDistance = 5.5): ShopPoi | null {
+  let nearest: ShopPoi | null = null;
+  let best = maxDistance * maxDistance;
+  for (const poi of shopPois.values()) {
+    const dx = poi.x - x;
+    const dz = poi.z - z;
+    const distSq = dx * dx + dz * dz;
+    if (distSq <= best) {
+      best = distSq;
+      nearest = poi;
+    }
+  }
+  return nearest;
+}
+
+/** Clears the registry (used by tests and on world teardown). */
+export function clearShopPois(): void {
+  shopPois.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Active Chunk Registry
+// Tracks which streamed chunks are currently mounted so orphaned vehicles can
+// be garbage-collected after the player drives one away from its home chunk.
+// ---------------------------------------------------------------------------
+const activeChunkKeys = new Set<string>();
+
+export function chunkKey(cx: number, cz: number): string {
+  return `${cx},${cz}`;
+}
+
+export function isChunkActive(cx: number, cz: number): boolean {
+  return activeChunkKeys.has(chunkKey(cx, cz));
+}
 
 // Deterministic pseudo-random number generator for chunk content
 function chunkHash(cx: number, cz: number, seed = 0): number {
@@ -20,31 +80,90 @@ const PETROL_BRANDS = ['Lekki Energy', 'Oando Express', 'Conoil Hub', 'TotalEner
 const SUPERMARKET_NAMES = ['Mega Mart', 'Shoprite', 'Spar Express', 'Prince Ebeano'];
 const BANK_NAMES = ['First Bank', 'GTBank', 'Zenith Bank', 'Access Bank'];
 
+export type ChunkType = 'estate_hq' | 'petrol' | 'supermarket' | 'suya' | 'bank';
+
+/** Deterministic district type for a chunk (pure — shared by rendering and POIs). */
+export function getChunkType(cx: number, cz: number): ChunkType {
+  if (cx === 0 && cz === 0) return 'estate_hq';
+  const h = chunkHash(cx, cz, 1);
+  if (h < 0.28) return 'petrol';
+  if (h < 0.56) return 'supermarket';
+  if (h < 0.80) return 'suya';
+  return 'bank';
+}
+
+/** Deterministic display name for a chunk's district business. */
+export function getChunkBrand(cx: number, cz: number, type: ChunkType = getChunkType(cx, cz)): string {
+  const idx = Math.floor(chunkHash(cx, cz, 2) * 4);
+  if (type === 'petrol') return PETROL_BRANDS[idx] ?? 'Lekki Energy';
+  if (type === 'supermarket') return SUPERMARKET_NAMES[idx] ?? 'Mega Mart';
+  if (type === 'bank') return BANK_NAMES[idx] ?? 'First Bank';
+  if (type === 'estate_hq') return 'Poolside Bar & Drinks';
+  return `Zone ${(Math.abs(cx + cz) % 12) + 1}`;
+}
+
+const CHUNK_SHOP_BY_TYPE: Record<ChunkType, ShopId> = {
+  estate_hq: 'bar',
+  petrol: 'gas_station',
+  supermarket: 'supermarket',
+  suya: 'restaurant',
+  bank: 'activity',
+};
+
+/** World position of a chunk's shop entrance (matches the rendered badge). */
+export function getChunkShopWorldPos(cx: number, cz: number, type: ChunkType = getChunkType(cx, cz)): [number, number] {
+  if (type === 'estate_hq') return [cx * CHUNK_SIZE + 16, cz * CHUNK_SIZE];
+  // District props sit under a group at local [-15, 0, (50|52)].
+  const localZ = type === 'petrol' || type === 'supermarket' ? 52 : 50;
+  return [cx * CHUNK_SIZE - 15, cz * CHUNK_SIZE + localZ];
+}
+
+/** Pure shop POI descriptor for a chunk. */
+export function getChunkShopPoi(cx: number, cz: number): ShopPoi {
+  const type = getChunkType(cx, cz);
+  const [x, z] = getChunkShopWorldPos(cx, cz, type);
+  return {
+    key: `poi_${cx}_${cz}`,
+    shopId: CHUNK_SHOP_BY_TYPE[type],
+    name: getChunkBrand(cx, cz, type),
+    x,
+    z,
+  };
+}
+
+/** Parse the home chunk out of a streamed vehicle id (`chunk_veh_<cx>_<cz>`). */
+export function parseChunkVehicleId(id: string): { cx: number; cz: number } | null {
+  const match = /^chunk_veh_(-?\d+)_(-?\d+)$/.exec(id);
+  if (!match) return null;
+  return { cx: Number(match[1]), cz: Number(match[2]) };
+}
+
+/**
+ * A streamed vehicle should be dropped once its home chunk is no longer
+ * mounted (e.g. the player drove it away and then dismounted).
+ */
+export function shouldRemoveOrphanedVehicle(
+  id: string,
+  isActive: (cx: number, cz: number) => boolean = isChunkActive,
+): boolean {
+  const home = parseChunkVehicleId(id);
+  return home !== null && !isActive(home.cx, home.cz);
+}
+
 // ---------------------------------------------------------------------------
 // Single Town Chunk Component (100m x 100m)
 // ---------------------------------------------------------------------------
-export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
+export function TownChunk({ cx, cz, isNearby = true }: { cx: number; cz: number; isNearby?: boolean }) {
   const isEstateChunk = cx === 0 && cz === 0;
   const originX = cx * CHUNK_SIZE;
   const originZ = cz * CHUNK_SIZE;
 
-  // Deterministic chunk metadata
-  const chunkType = useMemo(() => {
-    if (isEstateChunk) return 'estate_hq';
-    const h = chunkHash(cx, cz, 1);
-    if (h < 0.28) return 'petrol';
-    if (h < 0.56) return 'supermarket';
-    if (h < 0.80) return 'suya';
-    return 'bank';
-  }, [cx, cz, isEstateChunk]);
+  const isModalOpen = useEconomyStore((s) => Boolean(s.activeShopId || s.isTransferModalOpen));
+  const showBadges = isNearby && !isModalOpen;
 
-  const brandName = useMemo(() => {
-    const idx = Math.floor(chunkHash(cx, cz, 2) * 4);
-    if (chunkType === 'petrol') return PETROL_BRANDS[idx] ?? 'Lekki Energy';
-    if (chunkType === 'supermarket') return SUPERMARKET_NAMES[idx] ?? 'Mega Mart';
-    if (chunkType === 'bank') return BANK_NAMES[idx] ?? 'First Bank';
-    return `Zone ${Math.abs(cx + cz) % 12 + 1}`;
-  }, [cx, cz, chunkType]);
+  // Deterministic chunk metadata
+  const chunkType = useMemo(() => getChunkType(cx, cz), [cx, cz]);
+  const brandName = useMemo(() => getChunkBrand(cx, cz, chunkType), [cx, cz, chunkType]);
 
   const chunkVehicle = useMemo(() => {
     if (isEstateChunk) return null;
@@ -57,6 +176,8 @@ export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
     return { id, type, posX, posZ };
   }, [cx, cz, isEstateChunk, originX, originZ]);
 
+  const shopPoi = useMemo<ShopPoi>(() => getChunkShopPoi(cx, cz), [cx, cz]);
+
   const spawnVehicle = useVehicleStore((s) => s.spawnVehicle);
   const boardVehicle = useVehicleStore((s) => s.boardVehicle);
   const mountedId = useVehicleStore((s) => s.mountedVehicleId);
@@ -64,10 +185,26 @@ export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
   const openShop = useEconomyStore((s) => s.openShop);
 
   useEffect(() => {
-    if (chunkVehicle) {
+    if (!chunkVehicle) return;
+    // Only seed the parked vehicle once; a vehicle the player drove elsewhere
+    // keeps its live transform instead of snapping back to the parking spot.
+    if (!useVehicleStore.getState().vehicles[chunkVehicle.id]) {
       spawnVehicle(chunkVehicle.id, chunkVehicle.type, [chunkVehicle.posX, chunkVehicle.posZ, 0], 0);
     }
+    return () => {
+      // Despawn on chunk unload — unless the player is currently driving it.
+      const store = useVehicleStore.getState();
+      if (store.mountedVehicleId !== chunkVehicle.id) {
+        store.removeVehicle(chunkVehicle.id);
+      }
+    };
   }, [chunkVehicle, spawnVehicle]);
+
+  useEffect(() => {
+    if (!shopPoi) return;
+    registerShopPoi(shopPoi);
+    return () => unregisterShopPoi(shopPoi.key);
+  }, [shopPoi]);
 
   const registeredVeh = chunkVehicle ? vehicles[chunkVehicle.id] : null;
 
@@ -183,23 +320,27 @@ export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
             </mesh>
           ))}
           {/* Gate Exit Sign */}
-          <Html position={[0.5, 4.4, 26.3]} center distanceFactor={18}>
-            <div className="flex flex-col items-center pointer-events-none select-none whitespace-nowrap">
-              <div className="flex items-center gap-2 rounded-full bg-emerald-600/95 px-4 py-1.5 text-xs font-bold text-white shadow-2xl ring-2 ring-emerald-300 backdrop-blur-md animate-pulse">
-                <span>🚪</span>
-                <span>EXIT → Admiralty Way</span>
+          {showBadges && (
+            <Html position={[0.5, 4.4, 26.3]} center distanceFactor={18} zIndexRange={[10, 0]}>
+              <div className="flex flex-col items-center pointer-events-none select-none whitespace-nowrap">
+                <div className="flex items-center gap-2 rounded-full bg-emerald-600/95 px-4 py-1.5 text-xs font-bold text-white shadow-2xl ring-2 ring-emerald-300 backdrop-blur-md animate-pulse">
+                  <span>🚪</span>
+                  <span>EXIT → Admiralty Way</span>
+                </div>
               </div>
-            </div>
-          </Html>
+            </Html>
+          )}
           {/* Gate Estate Title */}
-          <Html position={[0.5, 4.0, 27.5]} center distanceFactor={18}>
-            <div className="flex flex-col items-center pointer-events-none select-none whitespace-nowrap">
-              <div className="flex items-center gap-2 rounded-full bg-amber-500/95 px-3.5 py-1 text-xs font-bold text-black shadow-xl ring-2 ring-amber-300 backdrop-blur-md">
-                <span>🏠</span>
-                <span>Big Brother Naija Estate</span>
+          {showBadges && (
+            <Html position={[0.5, 4.0, 27.5]} center distanceFactor={18} zIndexRange={[10, 0]}>
+              <div className="flex flex-col items-center pointer-events-none select-none whitespace-nowrap">
+                <div className="flex items-center gap-2 rounded-full bg-amber-500/95 px-3.5 py-1 text-xs font-bold text-black shadow-xl ring-2 ring-amber-300 backdrop-blur-md">
+                  <span>🏠</span>
+                  <span>Big Brother Naija Estate</span>
+                </div>
               </div>
-            </div>
-          </Html>
+            </Html>
+          )}
           {/* Security Guard Booth */}
           <SolidObject name="Security Guard Booth" position={[5.8, 1.5, 26.5]}>
             <mesh castShadow receiveShadow>
@@ -229,16 +370,18 @@ export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
           </mesh>
 
           {/* Garden Poolside Bar & Lounge Button */}
-          <Html position={[16, 2.5, 0]} center distanceFactor={18}>
-            <button
-              type="button"
-              onClick={() => openShop('bar')}
-              className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-purple-700/95 hover:bg-purple-600 px-3.5 py-1 text-xs font-bold text-white shadow-2xl ring-2 ring-purple-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95 whitespace-nowrap"
-            >
-              <span>🍸</span>
-              <span>Poolside Bar & Drinks [E]</span>
-            </button>
-          </Html>
+          {showBadges && (
+            <Html position={[16, 2.5, 0]} center distanceFactor={18} zIndexRange={[10, 0]}>
+              <button
+                type="button"
+                onClick={() => openShop('bar')}
+                className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-purple-700/95 hover:bg-purple-600 px-3.5 py-1 text-xs font-bold text-white shadow-2xl ring-2 ring-purple-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95 whitespace-nowrap"
+              >
+                <span>🍸</span>
+                <span>Poolside Bar & Drinks [E]</span>
+              </button>
+            </Html>
+          )}
         </>
       )}
 
@@ -281,16 +424,18 @@ export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
               <meshStandardMaterial color="#10b981" emissive="#10b981" emissiveIntensity={0.6} />
             </mesh>
           </SolidObject>
-          <Html position={[0, 4.8, 0]} center distanceFactor={22}>
-            <button
-              type="button"
-              onClick={() => openShop('gas_station')}
-              className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-sky-700/95 hover:bg-sky-600 px-3.5 py-1 text-xs font-bold text-white shadow-2xl ring-2 ring-sky-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95"
-            >
-              <span>⛽</span>
-              <span>{brandName} [E] Shop Fuel</span>
-            </button>
-          </Html>
+          {showBadges && (
+            <Html position={[0, 4.8, 0]} center distanceFactor={22} zIndexRange={[10, 0]}>
+              <button
+                type="button"
+                onClick={() => openShop('gas_station')}
+                className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-sky-700/95 hover:bg-sky-600 px-3.5 py-1 text-xs font-bold text-white shadow-2xl ring-2 ring-sky-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95"
+              >
+                <span>⛽</span>
+                <span>{brandName} [E] Shop Fuel</span>
+              </button>
+            </Html>
+          )}
         </group>
       )}
 
@@ -311,16 +456,18 @@ export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
               <meshStandardMaterial color="#ef4444" roughness={0.3} />
             </mesh>
           </SolidObject>
-          <Html position={[0, 5.6, 0]} center distanceFactor={22}>
-            <button
-              type="button"
-              onClick={() => openShop('supermarket')}
-              className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-red-600/95 hover:bg-red-500 px-3.5 py-1 text-xs font-bold text-white shadow-2xl ring-2 ring-red-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95"
-            >
-              <span>🛒</span>
-              <span>{brandName} [E] Enter Mart</span>
-            </button>
-          </Html>
+          {showBadges && (
+            <Html position={[0, 5.6, 0]} center distanceFactor={22} zIndexRange={[10, 0]}>
+              <button
+                type="button"
+                onClick={() => openShop('supermarket')}
+                className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-red-600/95 hover:bg-red-500 px-3.5 py-1 text-xs font-bold text-white shadow-2xl ring-2 ring-red-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95"
+              >
+                <span>🛒</span>
+                <span>{brandName} [E] Enter Mart</span>
+              </button>
+            </Html>
+          )}
         </group>
       )}
 
@@ -347,16 +494,18 @@ export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
               <meshStandardMaterial color="#ef4444" emissive="#f97316" emissiveIntensity={0.8} />
             </mesh>
           </SolidObject>
-          <Html position={[0, 3.4, 0]} center distanceFactor={20}>
-            <button
-              type="button"
-              onClick={() => openShop('restaurant')}
-              className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-amber-600/95 hover:bg-amber-500 px-3 py-1 text-xs font-bold text-white shadow-xl ring-2 ring-amber-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95"
-            >
-              <span>🍢</span>
-              <span>Lekki Suya Spot [E] Order Food</span>
-            </button>
-          </Html>
+          {showBadges && (
+            <Html position={[0, 3.4, 0]} center distanceFactor={20} zIndexRange={[10, 0]}>
+              <button
+                type="button"
+                onClick={() => openShop('restaurant')}
+                className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-amber-600/95 hover:bg-amber-500 px-3 py-1 text-xs font-bold text-white shadow-xl ring-2 ring-amber-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95"
+              >
+                <span>🍢</span>
+                <span>Lekki Suya Spot [E] Order Food</span>
+              </button>
+            </Html>
+          )}
         </group>
       )}
 
@@ -379,16 +528,18 @@ export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
               </mesh>
             ))}
           </SolidObject>
-          <Html position={[0, 3.6, 0]} center distanceFactor={20}>
-            <button
-              type="button"
-              onClick={() => openShop('activity')}
-              className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-emerald-700/95 hover:bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xl ring-2 ring-emerald-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95"
-            >
-              <span>🏧</span>
-              <span>{brandName} [E] Activities & ATM</span>
-            </button>
-          </Html>
+          {showBadges && (
+            <Html position={[0, 3.6, 0]} center distanceFactor={20} zIndexRange={[10, 0]}>
+              <button
+                type="button"
+                onClick={() => openShop('activity')}
+                className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-emerald-700/95 hover:bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xl ring-2 ring-emerald-300 backdrop-blur-md cursor-pointer transition hover:scale-105 active:scale-95"
+              >
+                <span>🏧</span>
+                <span>{brandName} [E] Activities & ATM</span>
+              </button>
+            </Html>
+          )}
         </group>
       )}
 
@@ -396,20 +547,23 @@ export function TownChunk({ cx, cz }: { cx: number; cz: number }) {
       {registeredVeh && registeredVeh.id !== mountedId && (
         <group position={[-10, 0, 41.5]}>
           <VehicleVisualModel type={registeredVeh.type} />
-          <Html
-            position={[0, registeredVeh.type === 'danfo_bus' ? 2.6 : (registeredVeh.type === 'keke_napep' ? 2.1 : 1.8), 0]}
-            center
-            distanceFactor={14}
-          >
-            <button
-              type="button"
-              onClick={() => boardVehicle(registeredVeh.id, 'player')}
-              className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-slate-950/85 hover:bg-black px-3 py-1 font-sans text-xs font-bold text-white shadow-xl ring-1 ring-white/20 backdrop-blur-md cursor-pointer transition-transform hover:scale-105 active:scale-95"
+          {showBadges && (
+            <Html
+              position={[0, registeredVeh.type === 'danfo_bus' ? 2.6 : (registeredVeh.type === 'keke_napep' ? 2.1 : 1.8), 0]}
+              center
+              distanceFactor={14}
+              zIndexRange={[10, 0]}
             >
-              <span>{VEHICLE_CATALOG[registeredVeh.type].emoji}</span>
-              <span>Drive {VEHICLE_CATALOG[registeredVeh.type].name.split(' ')[0]} [F]</span>
-            </button>
-          </Html>
+              <button
+                type="button"
+                onClick={() => boardVehicle(registeredVeh.id, 'player')}
+                className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-slate-950/85 hover:bg-black px-3 py-1 font-sans text-xs font-bold text-white shadow-xl ring-1 ring-white/20 backdrop-blur-md cursor-pointer transition-transform hover:scale-105 active:scale-95"
+              >
+                <span>{VEHICLE_CATALOG[registeredVeh.type].emoji}</span>
+                <span>Drive {VEHICLE_CATALOG[registeredVeh.type].name.split(' ')[0]} [F]</span>
+              </button>
+            </Html>
+          )}
         </group>
       )}
     </group>
@@ -437,11 +591,20 @@ export function InfiniteWorld() {
       for (let dz = -STREAM_RADIUS; dz <= STREAM_RADIUS; dz++) {
         const cx = centerChunk.cx + dx;
         const cz = centerChunk.cz + dz;
-        chunks.push({ cx, cz, key: `${cx},${cz}` });
+        chunks.push({ cx, cz, key: chunkKey(cx, cz) });
       }
     }
     return chunks;
   }, [centerChunk.cx, centerChunk.cz]);
+
+  // Publish the mounted chunk set so orphaned streamed vehicles can be GC'd.
+  useEffect(() => {
+    activeChunkKeys.clear();
+    for (const c of activeChunks) activeChunkKeys.add(c.key);
+    return () => {
+      activeChunkKeys.clear();
+    };
+  }, [activeChunks]);
 
   return (
     <group position={[0, 0, 0]}>
@@ -457,7 +620,12 @@ export function InfiniteWorld() {
 
       {/* Streamed dynamic town chunks */}
       {activeChunks.map((c) => (
-        <TownChunk key={c.key} cx={c.cx} cz={c.cz} />
+        <TownChunk
+          key={c.key}
+          cx={c.cx}
+          cz={c.cz}
+          isNearby={c.cx === centerChunk.cx && c.cz === centerChunk.cz}
+        />
       ))}
     </group>
   );

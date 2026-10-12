@@ -106,9 +106,21 @@ export type Phase =
   | 'finale' // final 2 vote
   | 'gameover';
 
+export const TOP_5_PRIZES: Record<number, number> = {
+  1: 100_000_000,
+  2: 30_000_000,
+  3: 15_000_000,
+  4: 10_000_000,
+  5: 5_000_000,
+};
+
+export const GRAND_PRIZE = TOP_5_PRIZES[1]; // ₦100M
+
 export interface GameOver {
   won: boolean;
   reason: string;
+  rank?: number;
+  prize?: number;
 }
 
 export interface GameState {
@@ -137,8 +149,6 @@ export const WEEK_DAYS: Record<number, string> = {
   6: 'Saturday',
   7: 'Sunday',
 };
-
-export const GRAND_PRIZE = 100_000_000; // ₦100M
 
 export interface CreationConfig {
   name: string;

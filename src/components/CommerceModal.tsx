@@ -37,7 +37,7 @@ export function CommerceModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md animate-fade-in font-sans">
+    <div className="fixed inset-0 z-[99999999] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in font-sans">
       <div className="relative flex flex-col w-full max-w-4xl h-[90vh] max-h-[820px] rounded-3xl border border-white/15 bg-slate-950/95 text-white shadow-2xl overflow-hidden ring-1 ring-white/10">
         {/* Top Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900">

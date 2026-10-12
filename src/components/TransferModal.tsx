@@ -49,7 +49,7 @@ export function TransferModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-sans">
+    <div className="fixed inset-0 z-[99999999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in font-sans">
       <div className="relative flex flex-col w-full max-w-lg rounded-3xl border border-emerald-500/30 bg-slate-950/95 text-white shadow-2xl p-6 ring-1 ring-emerald-500/20">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">

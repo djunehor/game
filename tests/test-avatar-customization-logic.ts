@@ -31,6 +31,27 @@ assert(STATES_OF_ORIGIN.length === 37, 'STATES_OF_ORIGIN contains all 36 states 
 assert(PROFESSIONS.length >= 8, 'PROFESSIONS provides diverse career backgrounds');
 assert(TRAITS.length >= 6, 'TRAITS provides strategic personality archetypes');
 
+// 2b. Option lists must be unique — they are used as React keys in the creator,
+// so a duplicate would log "two children with the same key" and drop options.
+function duplicates(values: string[]): string[] {
+  const seen = new Set<string>();
+  const dups = new Set<string>();
+  for (const v of values) {
+    if (seen.has(v)) dups.add(v);
+    seen.add(v);
+  }
+  return [...dups];
+}
+
+const emojiDups = duplicates(AVATAR_EMOJIS);
+assert(emojiDups.length === 0, `AVATAR_EMOJIS has no duplicate entries (found: ${emojiDups.join(', ') || 'none'})`);
+assert(duplicates(ACCENT_COLORS).length === 0, 'ACCENT_COLORS has no duplicate entries');
+assert(duplicates(SKIN_TONES).length === 0, 'SKIN_TONES has no duplicate entries');
+assert(duplicates(STATES_OF_ORIGIN).length === 0, 'STATES_OF_ORIGIN has no duplicate entries');
+assert(duplicates(HAIRSTYLES.map((h) => h.id)).length === 0, 'HAIRSTYLES ids are unique');
+assert(duplicates(PROFESSIONS.map((p) => p.id)).length === 0, 'PROFESSIONS ids are unique');
+assert(duplicates(TRAITS.map((t) => t.id)).length === 0, 'TRAITS ids are unique');
+
 // 3. Test player initialization with female and male avatar configs
 const femaleConfig: CreationConfig = {
   name: 'Chioma Chukwu',

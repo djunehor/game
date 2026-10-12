@@ -8,11 +8,12 @@ export function NominationsModal({ state }: { state: GameState }) {
   const [picks, setPicks] = useState<string[]>([]);
 
   const eligible = state.housemates.filter((h) => h.status === 'active' && !h.isHoH && !h.isImmune);
+  const requiredCount = Math.min(2, eligible.length);
 
   const toggle = (id: string) => {
     setPicks((prev) => {
       if (prev.includes(id)) return prev.filter((p) => p !== id);
-      if (prev.length >= 2) return prev;
+      if (prev.length >= requiredCount) return prev;
       return [...prev, id];
     });
   };
@@ -26,7 +27,7 @@ export function NominationsModal({ state }: { state: GameState }) {
       />
       <div className="px-6 py-5">
         <div className="mb-3 text-xs font-bold text-ink-soft uppercase">
-          {picks.length}/2 selected
+          {picks.length}/{requiredCount} selected
         </div>
         <div className="space-y-2">
           {eligible.map((h) => {
@@ -54,7 +55,7 @@ export function NominationsModal({ state }: { state: GameState }) {
 
         <button
           onClick={() => submitNominations(picks)}
-          disabled={picks.length !== 2}
+          disabled={picks.length !== requiredCount}
           className="mt-5 w-full rounded-2xl bg-ink py-3.5 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
         >
           Lock in nominations

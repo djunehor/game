@@ -2,7 +2,7 @@ import type { CreationConfig, GameState, Housemate, LogEntry, LogKind, Phase, Tw
 import { AI_HOUSEMATES } from '../data/housemates';
 import { PROFESSIONS } from '../data/profileOptions';
 import { RANDOM_EVENTS, PARTY_EVENTS } from '../data/events';
-import { MAX_ACTIONS_PER_DAY } from '../types';
+import { MAX_ACTIONS_PER_DAY, TOP_5_PRIZES } from '../types';
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -425,14 +425,35 @@ export function resolveEviction(state: GameState): GameState {
   const evicted = candidates.sort((a, b) => a.clout - b.clout)[0];
 
   if (evicted.isPlayer) {
+    const rank = totalActive;
+    const prize = TOP_5_PRIZES[rank] ?? 0;
+    const reason =
+      prize > 0
+        ? `${state.player.nickname} finished in ${rank === 2 ? '2nd' : rank === 3 ? '3rd' : `${rank}th`} place and won ₦${prize.toLocaleString()}!`
+        : `${state.player.nickname} was evicted from the Biggie House.`;
+
     return {
       ...state,
-      player: { ...state.player, status: 'evicted' },
+      player: {
+        ...state.player,
+        status: 'evicted',
+        bbCoins: state.player.bbCoins + prize,
+      },
       evictedId: state.player.id,
       phase: 'gameover',
       phaseDone: true,
-      gameOver: { won: false, reason: `${state.player.nickname} was evicted from the Biggie House.` },
-      log: [...state.log, makeLog(state.week, state.day, `${state.player.nickname} was evicted! The journey ends here.`, 'eviction')].slice(-80),
+      gameOver: { won: false, rank, prize, reason },
+      log: [
+        ...state.log,
+        makeLog(
+          state.week,
+          state.day,
+          prize > 0
+            ? `${state.player.nickname} finished in ${rank}th place with a prize of ₦${(prize / 1_000_000)}M!`
+            : `${state.player.nickname} was evicted! The journey ends here.`,
+          'eviction'
+        ),
+      ].slice(-80),
     };
   }
 
@@ -455,17 +476,35 @@ function resolveFinale(state: GameState): GameState {
   const playerClout = state.player.fanbaseClout;
   const rivalClout = rival?.fanbaseClout ?? 0;
   const won = playerClout >= rivalClout;
+  const rank = won ? 1 : 2;
+  const prize = TOP_5_PRIZES[rank] ?? 0;
 
   return {
     ...state,
+    player: {
+      ...state.player,
+      bbCoins: state.player.bbCoins + prize,
+    },
     phase: 'gameover',
     phaseDone: true,
-    gameOver: won
-      ? { won: true, reason: `${state.player.nickname} survived to the finale and won the ₦100,000,000 grand prize!` }
-      : { won: false, reason: `${rival?.nickname ?? 'A housemate'} won the finale vote. So close!` },
+    gameOver: {
+      won,
+      rank,
+      prize,
+      reason: won
+        ? `${state.player.nickname} survived to the finale and won the ₦100,000,000 grand prize!`
+        : `${state.player.nickname} finished in 2nd place (1st runner-up) and won ₦${prize.toLocaleString()}!`,
+    },
     log: [
       ...state.log,
-      makeLog(state.week, state.day, won ? 'FINALE: You won Big Brother Naija! ₦100M is yours! 🏆' : `FINALE: ${rival?.nickname} took the crown.`, 'eviction'),
+      makeLog(
+        state.week,
+        state.day,
+        won
+          ? 'FINALE: You won Big Brother Naija! ₦100M is yours! 🏆'
+          : `FINALE: ${state.player.nickname} is 1st runner-up and won ₦30M! 🥈`,
+        'eviction'
+      ),
     ].slice(-80),
   };
 }

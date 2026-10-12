@@ -1,4 +1,3 @@
-import { Html } from '@react-three/drei';
 import { ROOM_DEFS, WALLS } from './rooms';
 import { LivingNPC } from './LivingNPC';
 import { RemotePlayer } from './RemotePlayer';
@@ -101,22 +100,6 @@ export function Scene({
         );
       })}
 
-      {/* Floating Room Identity Badges */}
-      {ROOM_DEFS.map((r) => (
-        <Html
-          key={`label-${r.id}`}
-          position={[r.center[0], 4.6, r.center[1]]}
-          center
-          distanceFactor={22}
-          zIndexRange={[5, 0]}
-        >
-          <div className="pointer-events-none flex flex-col items-center whitespace-nowrap">
-            <span className="rounded-full bg-ink/75 px-3.5 py-1 text-xs font-bold text-white shadow-xl ring-1 ring-white/20 backdrop-blur-md">
-              {r.emoji} {r.label}
-            </span>
-          </div>
-        </Html>
-      ))}
 
       {/* Soundstage & Compound Walls with Architectural Skirting */}
       {WALLS.map((w, i) => (
