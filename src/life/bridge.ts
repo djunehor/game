@@ -2,6 +2,7 @@ import { useSimStore } from '../sim/simStore';
 import { getInteraction } from '../sim/interactions';
 import { addMoodlet, createMoodlet } from '../sim/moodlets';
 import { addSkillXp } from '../sim/skills';
+import { sound } from '../engine/sound';
 import { applyMotiveDeltas } from '../sim/motives';
 import { clockParts } from '../sim/time';
 import { useLifeStore } from './lifeStore';
@@ -12,7 +13,7 @@ import {
   newlyCompletedMilestones,
   type AspirationContext,
 } from './aspirations';
-import { ASPIRATIONS } from './content';
+import { ASPIRATIONS, LIFE_STAGES } from './content';
 import { applyConsequenceEffects, pendingConsequence } from './consequences';
 import type { InteractionDef } from '../sim/types';
 
@@ -159,7 +160,12 @@ export function syncAvatarSocialMeta(): void {
           { friendship: Math.round(rel.friendship), romance: Math.round(rel.romance) },
         ]),
       );
-      avatars[member.id] = { ...avatar, stage: member.stage, relationships };
+      avatars[member.id] = {
+        ...avatar,
+        stage: member.stage,
+        relationships,
+        skillCap: LIFE_STAGES[member.stage].skillCap,
+      };
       changed = true;
     }
     return changed ? { avatars } : s;
@@ -218,6 +224,7 @@ export function evaluateAspirations(): void {
         }
       }
 
+      sound.play('milestone');
       useLifeStore.getState().notify(
         `${member.firstName}: ${milestone.label}${reward.funds ? ` (+₦${reward.funds.toLocaleString()})` : ''}`,
         milestone.emoji,
@@ -330,6 +337,7 @@ export function evaluateConsequences(): void {
       }
     }
 
+    sound.play('warning');
     useLifeStore.getState().notify(consequence.message(member.firstName), consequence.emoji, 'warning');
   }
 }

@@ -13,6 +13,7 @@ import { canUseInteraction, friendshipLabel, relationKindFor, stageProgress } fr
 import { aspirationStatus, type AspirationContext } from '../life/aspirations';
 import { ASPIRATIONS, LIFE_STAGES } from '../life/content';
 import { ADOPTION_COST, canAdopt, canTryForBaby } from '../life/family';
+import { sound } from '../engine/sound';
 import { getSkillLevel } from '../sim/skills';
 
 // ---------------------------------------------------------------------------
@@ -137,7 +138,10 @@ export function LifeHUD() {
               <button
                 key={s}
                 type="button"
-                onClick={() => setSpeed(s)}
+                onClick={() => {
+                  sound.play('click');
+                  setSpeed(s);
+                }}
                 aria-label={l}
                 className={`grid size-8 place-items-center rounded-xl text-xs transition cursor-pointer ${
                   speed === s ? 'bg-gold/25 text-gold ring-1 ring-gold/60' : 'bg-white/10 text-white/70 hover:bg-white/20'
@@ -157,7 +161,10 @@ export function LifeHUD() {
           </button>
           <button
             type="button"
-            onClick={() => setMode(mode === 'build' ? 'live' : 'build')}
+            onClick={() => {
+              sound.play('click');
+              setMode(mode === 'build' ? 'live' : 'build');
+            }}
             className={`rounded-2xl px-3 py-2 text-xs font-bold shadow-xl backdrop-blur-md transition cursor-pointer ${
               mode === 'build'
                 ? 'bg-emerald-500/90 text-white'
@@ -370,7 +377,10 @@ export function LifeHUD() {
                     type="button"
                     disabled={locked}
                     title={locked ? 'Not close enough yet' : def.label}
-                    onClick={() => order(selected.id, def.id, partner.id)}
+                    onClick={() => {
+                      sound.play('click');
+                      order(selected.id, def.id, partner.id);
+                    }}
                     className={`flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-[11px] font-semibold transition ${
                       locked ? 'cursor-not-allowed bg-white/5 text-white/30' : 'cursor-pointer bg-white/5 hover:bg-white/15'
                     }`}

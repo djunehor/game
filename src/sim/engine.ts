@@ -8,7 +8,7 @@ import {
 import { getInteraction } from './interactions';
 import { addMoodlet, createMoodlet, pruneMoodlets } from './moodlets';
 import { applyMotiveDeltas, createInitialMotives, decayMotives } from './motives';
-import { addSkillXp, getSkillLevel } from './skills';
+import { addSkillXp, cumulativeXpForLevel, getSkillLevel } from './skills';
 import type { InteractionDef, MotiveId, SimAvatar, SkillId } from './types';
 
 export const RECENT_MEMORY = 4;
@@ -172,7 +172,13 @@ function applyCompletion(
     for (const [skill, xp] of Object.entries(def.skillXp) as [SkillId, number][]) {
       const result = addSkillXp(skills, skill, xp);
       skills = result.skills;
-      if (result.levelsGained > 0) levelUps.push({ skill, level: result.newLevel });
+      // Children cannot become masters: hold them at their stage's ceiling.
+      const cap = next.skillCap;
+      if (cap !== undefined && getSkillLevel(skills, skill) > cap) {
+        skills = { ...skills, [skill]: { xp: cumulativeXpForLevel(cap) } };
+      }
+      const level = getSkillLevel(skills, skill);
+      if (level > getSkillLevel(next.skills, skill)) levelUps.push({ skill, level });
     }
     next = { ...next, skills };
   }

@@ -4,6 +4,7 @@ import { MOTIVE_META, motiveColor } from '../sim/motives';
 import { allMoodlets, computeMood } from '../sim/moodlets';
 import { allSkillProgress, getSkillLevel, meetsSkillRequirement } from '../sim/skills';
 import { SPEED_META, clockParts } from '../sim/time';
+import { sound } from '../engine/sound';
 import { MOTIVE_IDS, type InteractionDef, type MotiveId, type SimAvatar, type SimClock, type SimSpeed } from '../sim/types';
 import type { SimEvent } from '../sim/simStore';
 
@@ -282,7 +283,10 @@ export function SimPanelView({
                       key={def.id}
                       type="button"
                       disabled={locked}
-                      onClick={() => onOrder(def.id)}
+                      onClick={() => {
+                        sound.play('click');
+                        onOrder(def.id);
+                      }}
                       className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[11px] transition ${
                         locked ? 'cursor-not-allowed bg-white/5 text-white/30' : 'cursor-pointer bg-white/5 hover:bg-white/15'
                       }`}

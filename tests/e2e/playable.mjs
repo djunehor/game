@@ -223,9 +223,22 @@ async function main() {
     await shot('02-moved-in');
 
     // --- Avatar control: arrow keys must move the SELECTED SIM -------------
-    const before = s.sims.find((sim) => sim.id === s.selectedSimId);
+    // Stage the Sim on open lawn first: where free will left them is arbitrary,
+    // and a Sim already against a wall would not move no matter how good the
+    // controls are.
+    const startSpot = await page.evaluate(() => {
+      const plot = window.__lifeStore.getState().household.plot;
+      const id = window.__life().selectedSimId;
+      const x = plot.originX + 13;
+      const z = plot.originZ + 19;
+      window.__lifeStore.getState().selectSim(id);
+      window.__teleport(id, x, z);
+      return { x, z, id };
+    });
+    await sleep(900);
+    const before = (await state()).sims.find((sim) => sim.id === startSpot.id);
     await page.keyboard.down('ArrowUp');
-    await sleep(1200);
+    await sleep(1000);
     await page.keyboard.up('ArrowUp');
     await sleep(400);
     let after = (await state()).sims.find((sim) => sim.id === before.id);
@@ -695,6 +708,19 @@ async function main() {
       await page.evaluate(() => /How to live here/i.test(document.body.innerText)),
       'First-time players are shown the controls',
     );
+
+    // --- Sound is wired and cannot break the game -------------------------
+    const audio = await page.evaluate(() => {
+      const store = window.__lifeStore;
+      const before = window.__lifeStore.getState().household.funds;
+      // Buying should trigger a cue without throwing even with no audio device.
+      store.getState().startPlacing('plant');
+      const plot = store.getState().household.plot;
+      store.getState().setGhost(plot.originX + 1, plot.originZ + 20);
+      store.getState().confirmPlace();
+      return { before, after: window.__lifeStore.getState().household.funds };
+    });
+    check(audio.after < audio.before, 'Purchases still work with the sound engine active');
 
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });

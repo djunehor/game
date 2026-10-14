@@ -240,5 +240,48 @@ console.log('→ Testing Family & Genetics');
   assert(LIFE_STAGES.baby.canBeAlone === false, 'Babies cannot be left alone');
 }
 
+// ------------------- Life stages gate how good you can get ---------------
+{
+  const { createSimAvatar, enqueueInteraction, tickAvatar } = await import('../src/sim/engine');
+  const { getInteraction } = await import('../src/sim/interactions');
+  const { getSkillLevel } = await import('../src/sim/skills');
+  const { MOTIVE_IDS } = await import('../src/sim/types');
+
+  const base = () => {
+    const avatar = createSimAvatar('kid', 'Kemi', ['goofball']);
+    const motives = Object.fromEntries(MOTIVE_IDS.map((id) => [id, 70]));
+    return { ...avatar, motives: motives as never };
+  };
+
+  const child = tickAvatar(
+    enqueueInteraction({ ...base(), skillCap: LIFE_STAGES.child.skillCap }, 'cook_meal'),
+    getInteraction('cook_meal')!.minutes,
+    { now: 0, autonomyEnabled: false },
+  );
+  assert(
+    getSkillLevel(child.avatar.skills, 'cooking') <= LIFE_STAGES.child.skillCap,
+    `A child cannot out-skill their stage (${getSkillLevel(child.avatar.skills, 'cooking')} / cap ${LIFE_STAGES.child.skillCap})`,
+  );
+
+  const adult = tickAvatar(
+    enqueueInteraction({ ...base(), skillCap: LIFE_STAGES.adult.skillCap }, 'cook_meal'),
+    getInteraction('cook_meal')!.minutes,
+    { now: 0, autonomyEnabled: false },
+  );
+  assert(
+    (adult.avatar.skills.cooking?.xp ?? 0) > (child.avatar.skills.cooking?.xp ?? 0) ||
+      getSkillLevel(adult.avatar.skills, 'cooking') >= getSkillLevel(child.avatar.skills, 'cooking'),
+    'An adult keeps gaining where a child is capped',
+  );
+  assert(
+    (adult.avatar.skills.cooking?.xp ?? 0) > 0,
+    'Cooking awards experience',
+  );
+  assert(
+    LIFE_STAGES.child.skillCap < LIFE_STAGES.adult.skillCap,
+    'Children have a lower ceiling than adults',
+  );
+}
+
 console.log(`\nFamily & Genetics Tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

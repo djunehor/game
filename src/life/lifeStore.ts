@@ -15,8 +15,11 @@ import {
   dueBirths,
   familyRelationshipKinds,
 } from './family';
-import { LIFE_TRAITS } from './content';
-import { CAREERS, LIFE_STAGES } from './content';
+import { LIFE_TRAITS, LIFE_STAGES } from './content';
+import { addSkillXp } from '../sim/skills';
+import { sound } from '../engine/sound';
+import type { SkillId } from '../sim/types';
+import { CAREERS } from './content';
 import { completeShift, isWorkDay, missShift, shiftFor } from './careers';
 import { interactionsForLot, regionLabelAt } from './objects';
 import { loadHousehold, saveHousehold, SAVE_VERSION } from './persistence';
@@ -509,6 +512,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
       funds -= price;
     }
 
+    sound.play('purchase');
     set({
       household: { ...household, lot, funds },
       placingCatalogId: null,
@@ -527,6 +531,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
     const lot = household.lot.filter((o) => o.uid !== targetUid);
     set({ household: { ...household, lot, funds: household.funds + refund } });
     registerLotInteractions(lot);
+    sound.play('purchase');
     get().notify(`Sold the ${CATALOG_BY_ID[placed.catalogId]?.name ?? 'item'} for ₦${refund.toLocaleString()}`, '💵', 'money');
   },
 
@@ -679,6 +684,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
         ),
       },
     });
+    sound.play('birthday');
     get().notify(`${a.firstName} is expecting!`, '🤰', 'birthday');
   },
 
@@ -755,7 +761,21 @@ export const useLifeStore = create<LifeState>((set, get) => ({
       return { ...aged.sim, career };
     });
 
-    // 3. Births.
+    // 3. School. Children and teens pick something up every day.
+    const SCHOOL_SKILLS: SkillId[] = ['logic', 'creativity', 'charisma', 'cooking'];
+    for (let i = 0; i < sims.length; i++) {
+      const member = sims[i];
+      if (member.stage !== 'child' && member.stage !== 'teen') continue;
+      const skill = SCHOOL_SKILLS[(i + dayOffset) % SCHOOL_SKILLS.length];
+      const avatar = useSimStore.getState().avatars[member.id];
+      if (!avatar) continue;
+      const result = addSkillXp(avatar.skills, skill, 45);
+      useSimStore.setState((s) => ({
+        avatars: { ...s.avatars, [member.id]: { ...avatar, skills: result.skills } },
+      }));
+    }
+
+    // 4. Births.
     const births = dueBirths(sims, dayOffset);
     for (const expecting of births) {
       const partner = expecting.pregnancyPartnerId
@@ -817,6 +837,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
         }
       }
 
+      sound.play('birthday');
       notifications.push({
         id: uid('note'),
         text: `${expecting.firstName} gave birth to ${newborn.firstName}! 🎉`,
@@ -826,7 +847,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
       });
     }
 
-    // 4. Weekly bills on Mondays.
+    // 5. Weekly bills on Mondays.
     if (weekday === 1) {
       const bill = Math.round(household.lot.length * 12 + sims.length * BILLS_PER_SIM);
       funds -= bill;

@@ -4,6 +4,7 @@ import { canAfford, objectPrice, sellValue } from '../life/buildMode';
 import { canPlace } from '../life/buildMode';
 import { regionLabelAt } from '../life/objects';
 import { useLifeStore } from '../life/lifeStore';
+import { sound } from '../engine/sound';
 
 import type { ObjectCategory } from '../life/types';
 
@@ -88,7 +89,10 @@ export function BuildBuyPanel() {
             <button
               key={t.id}
               type="button"
-              onClick={() => setTool(t.id)}
+              onClick={() => {
+                sound.play('click');
+                setTool(t.id);
+              }}
               className={`rounded-xl px-2.5 py-1 text-[11px] font-bold transition cursor-pointer ${
                 tool === t.id ? 'bg-gold/25 text-gold ring-1 ring-gold/50' : 'text-white/60 hover:bg-white/10'
               }`}
@@ -199,7 +203,10 @@ export function BuildBuyPanel() {
                   key={item.id}
                   type="button"
                   disabled={!affordable}
-                  onClick={() => startPlacing(item.id)}
+                  onClick={() => {
+                    sound.play('click');
+                    startPlacing(item.id);
+                  }}
                   title={item.description}
                   className={`flex flex-col gap-1 rounded-2xl border p-2 text-left transition ${
                     active

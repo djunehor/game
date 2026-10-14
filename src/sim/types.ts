@@ -180,6 +180,8 @@ export interface SimAvatar {
   counters?: Record<string, number>;
   /** When each consequence last happened to this Sim (sim minutes). */
   consequenceCooldowns?: Record<string, number>;
+  /** Highest skill level this Sim can currently reach (from their life stage). */
+  skillCap?: number;
 }
 
 // --- Clock ------------------------------------------------------------------

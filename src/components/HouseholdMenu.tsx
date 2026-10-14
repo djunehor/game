@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLifeStore } from '../life/lifeStore';
 import { LIFE_TRAITS } from '../life/content';
 import { AVATAR_EMOJIS, ACCENT_COLORS, SKIN_TONES } from '../data/profileOptions';
+import { sound } from '../engine/sound';
 
 // ---------------------------------------------------------------------------
 // Household menu: rename the family, move Sims in and out, start over, and a
@@ -28,6 +29,7 @@ export function HouseholdMenu({ onOpenChange }: { onOpenChange?: (open: boolean)
   const [open, setOpen] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [helpOnStart, setHelpOnStart] = useState(false);
+  const [muted, setMuted] = useState(sound.muted);
 
   const household = useLifeStore((s) => s.household);
   const selectedSimId = useLifeStore((s) => s.selectedSimId);
@@ -82,7 +84,10 @@ export function HouseholdMenu({ onOpenChange }: { onOpenChange?: (open: boolean)
       <div className="absolute top-3 right-3 z-40 flex items-center gap-1.5">
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => {
+            sound.play('click');
+            setOpen((v) => !v);
+          }}
           aria-label="Household menu"
           className="grid size-9 place-items-center rounded-2xl border border-white/20 bg-slate-950/85 text-sm font-bold text-white shadow-xl backdrop-blur-md transition hover:bg-slate-900 cursor-pointer"
         >
@@ -126,7 +131,10 @@ export function HouseholdMenu({ onOpenChange }: { onOpenChange?: (open: boolean)
                   <button
                     type="button"
                     title={`Move ${sim.firstName} out`}
-                    onClick={() => removeSim(sim.id)}
+                    onClick={() => {
+                      sound.play('click');
+                      removeSim(sim.id);
+                    }}
                     className="rounded px-1 text-[10px] text-rose-300 hover:bg-rose-500/20 cursor-pointer"
                   >
                     Move out
@@ -150,6 +158,17 @@ export function HouseholdMenu({ onOpenChange }: { onOpenChange?: (open: boolean)
           >
             <span>➕</span>
             <span>{household.sims.length >= 8 ? 'House is full' : 'Move someone in'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMuted(sound.toggleMute())}
+            className="flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-[11px] font-semibold transition hover:bg-white/10 cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <span>{muted ? '🔇' : '🔊'}</span>
+              <span>Sound</span>
+            </span>
+            <span className="text-[9px] text-white/45">{muted ? 'Off' : 'On'}</span>
           </button>
           <button
             type="button"

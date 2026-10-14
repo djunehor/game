@@ -38,6 +38,15 @@ export function App() {
     // Direct store handles for the harness to drive the game headlessly.
     w.__lifeStore = useLifeStore;
     w.__simStore = useSimStore;
+    w.__teleport = (simId: string, x: number, z: number) => {
+      // Dev-only: place a Sim exactly, so tests can start from open ground.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      void import('../src/three/collisionStore').then((mod) => {
+        mod.updateAvatarCollider(simId, x, z, 0.45, 0);
+        (w.__teleported as Record<string, { x: number; z: number }> | undefined) ??= {};
+        (w.__teleported as Record<string, { x: number; z: number }>)[simId] = { x, z };
+      });
+    };
     w.__life = () => {
       const life = useLifeStore.getState();
       const sim = useSimStore.getState();
