@@ -48,6 +48,8 @@ export const MOODLET_CATALOG: Record<string, MoodletDef> = {
   embarrassed_moment: { label: 'Embarrassed', emoji: '😳', intensity: -3, emotion: { embarrassed: 4 } },
   rude_encounter: { label: 'Rudeness', emoji: '😤', intensity: -3, emotion: { angry: 4 } },
   exhausted_collapse: { label: 'Exhausted', emoji: '🥵', intensity: -3, emotion: { uncomfortable: 4 } },
+  grieving: { label: 'Grieving', emoji: '🕯️', intensity: -5, emotion: { sad: 5 } },
+  lived_well: { label: 'Lived Well', emoji: '🕊️', intensity: 2, emotion: { content: 2 } },
 };
 
 function makeMoodlet(id: string, def: MoodletDef, expiresAt: number, source: string): Moodlet {

@@ -1,4 +1,4 @@
-import { Html } from '@react-three/drei';
+import { HudHtml as Html } from './hudPortal';
 import { SolidObject } from './SolidObject';
 import { CATALOG_BY_ID } from '../life/catalog';
 import { useLifeStore } from '../life/lifeStore';

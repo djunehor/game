@@ -1,6 +1,7 @@
 import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html, useGLTF } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
+import { HudHtml as Html } from './hudPortal';
 import * as THREE from 'three';
 import { SkeletonUtils } from 'three-stdlib';
 import { useCamera } from './cameraStore';

@@ -100,7 +100,11 @@ async function main() {
 
     const page = await browser.newPage();
     const pageErrors = [];
-    page.on('pageerror', (e) => pageErrors.push(String(e).slice(0, 240)));
+    page.on('pageerror', (e) => {
+      // Keep the stack: "not a child of this node" is useless without knowing
+      // which teardown produced it.
+      pageErrors.push(`${String(e).slice(0, 200)} :: ${(e.stack || '').split('\n').slice(1, 5).join(' <- ')}`);
+    });
     page.on('console', (m) => {
       if (m.type() === 'error' && !/unmount a root|same key/i.test(m.text())) {
         pageErrors.push(m.text().slice(0, 240));
@@ -784,6 +788,39 @@ async function main() {
     check(sentHome.gone, 'A visitor can be sent home');
     check(sentHome.avatarGone, 'They leave the simulation when they go');
 
+    // --- Generations: an elder can pass on --------------------------------
+    const mortality = await page.evaluate(() => {
+      const store = window.__lifeStore;
+      const home = store.getState().household;
+      const sims = home.sims.filter((s) => !s.visiting);
+      if (sims.length < 2) return null;
+      // Age the first resident to the very end of their life.
+      store.setState((s) => ({
+        household: {
+          ...s.household,
+          sims: s.household.sims.map((m) =>
+            m.id === sims[0].id ? { ...m, stage: 'elder', daysInStage: 999 } : m,
+          ),
+        },
+      }));
+      const countBefore = store.getState().household.sims.length;
+      store.getState().advanceLifeDay(50, 2);
+      const after = store.getState().household;
+      return {
+        countBefore,
+        countAfter: after.sims.length,
+        announced: store.getState().notifications.some((n) => /passed away/.test(n.text)),
+        gone: !after.sims.some((m) => m.id === sims[0].id),
+      };
+    });
+    if (mortality) {
+      check(mortality.gone, 'An elder who has lived their span passes away');
+      check(mortality.countAfter < mortality.countBefore, `The household shrinks (${mortality.countBefore} → ${mortality.countAfter})`);
+      check(mortality.announced, 'Their passing is announced to the player');
+    } else {
+      check(true, 'Mortality checks skipped (needs two residents)');
+    }
+
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
     await sleep(2500);
@@ -793,7 +830,11 @@ async function main() {
     );
 
     // --- No runtime errors ------------------------------------------------
-    check(pageErrors.length === 0, 'No runtime errors in the console', pageErrors.slice(0, 3).join(' | '));
+    check(
+      pageErrors.length === 0,
+      'No runtime errors in the console',
+      pageErrors.slice(0, 2).join('\n     '),
+    );
 
     await shot('05-final');
   } finally {

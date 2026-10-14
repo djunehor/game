@@ -67,6 +67,10 @@ Neighbours drop by if you invite them (☰ → Invite a neighbour over). They
 socialise, get to know the household and go home after a few hours. They do not
 pay bills, hold a job or age while they are visiting.
 
+Elders live out their span and then pass away, surrounded by family. The
+household grieves, and the next generation carries on — children grow up,
+inherit, and eventually take their place.
+
 Close couples can **try for a baby**, and a single Sim can **adopt**. Children
 inherit their parents' traits (with room for something of their own) and a
 blended version of their looks, then age through baby, child, teen, young adult,

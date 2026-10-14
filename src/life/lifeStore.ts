@@ -3,7 +3,7 @@ import { MOTIVE_IDS } from '../sim/types';
 import { useSimStore } from '../sim/simStore';
 import { registerObjectInteractions, registerSocialInteractions } from '../sim/interactions';
 import { SOCIAL_INTERACTIONS } from './social';
-import { advanceAge } from './aging';
+import { advanceAge, isAtEndOfLife } from './aging';
 import { CATALOG_BY_ID } from './catalog';
 import { canPlace, objectPrice, sellValue, snap, type PlacementCheck } from './buildMode';
 import {
@@ -19,6 +19,7 @@ import { LIFE_TRAITS, LIFE_STAGES } from './content';
 import { ACCENT_COLORS, AVATAR_EMOJIS, SKIN_TONES } from '../data/profileOptions';
 import { addSkillXp } from '../sim/skills';
 import { sound } from '../engine/sound';
+import { addMoodlet, createMoodlet } from '../sim/moodlets';
 import type { SkillId } from '../sim/types';
 import { CAREERS } from './content';
 import { completeShift, isWorkDay, missShift, shiftFor } from './careers';
@@ -926,7 +927,48 @@ export const useLifeStore = create<LifeState>((set, get) => ({
       });
     }
 
-    // 5. Weekly bills on Mondays.
+    // 5. Goodbyes. An elder who has lived their span passes on, and the rest of
+    //    the household grieves. Never removes the last member, so a family can
+    //    always carry on.
+    const departed: Sim[] = [];
+    for (const member of sims) {
+      if (!isAtEndOfLife(member)) continue;
+      if (sims.filter((m) => !m.visiting && !departed.includes(m)).length <= 1) break;
+      departed.push(member);
+    }
+
+    for (const gone of departed) {
+      const index = sims.indexOf(gone);
+      if (index >= 0) sims.splice(index, 1);
+      for (const survivor of sims) {
+        const rel = { ...survivor.relationships };
+        delete rel[gone.id];
+        survivor.relationships = rel;
+      }
+      // Everybody left behind carries the loss.
+      const grief = createMoodlet('grieving', dayOffset * 24 * 60, 60 * 24 * 2, 'bereavement');
+      useSimStore.setState((s) => {
+        const avatars = { ...s.avatars };
+        delete avatars[gone.id];
+        if (grief) {
+          for (const survivor of sims) {
+            const avatar = avatars[survivor.id];
+            if (avatar) avatars[survivor.id] = { ...avatar, moodlets: addMoodlet(avatar.moodlets, grief) };
+          }
+        }
+        return { avatars };
+      });
+      sound.play('warning');
+      notifications.push({
+        id: uid('note'),
+        text: `${gone.firstName} ${gone.lastName} passed away peacefully, surrounded by family.`,
+        emoji: '🕊️',
+        kind: 'warning',
+        at: dayOffset,
+      });
+    }
+
+    // 6. Weekly bills on Mondays.
     if (weekday === 1) {
       const residents = sims.filter((s) => !s.visiting).length;
       const bill = Math.round(household.lot.length * 12 + residents * BILLS_PER_SIM);

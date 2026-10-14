@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Scene } from './Scene';
 import { Player } from './Player';
+import { HudPortalProvider } from './hudPortal';
 
 export function GameCanvas() {
   return (
@@ -13,10 +14,12 @@ export function GameCanvas() {
       camera={{ position: [-11, 20, 26], fov: 50, near: 0.5, far: 800 }}
       className="absolute inset-0"
     >
-      <Suspense fallback={null}>
-        <Scene />
-        <Player />
-      </Suspense>
+      <HudPortalProvider>
+        <Suspense fallback={null}>
+          <Scene />
+          <Player />
+        </Suspense>
+      </HudPortalProvider>
     </Canvas>
   );
 }

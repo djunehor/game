@@ -13,6 +13,13 @@ export const LIFE_STAGES: Record<LifeStage, LifeStageMeta> = {
   elder: { id: 'elder', label: 'Elder', emoji: '🧓', days: 18, skillCap: 10, canWork: false, canRomance: true, canBeAlone: true },
 };
 
+/**
+ * Once an elder has lived out their stage, they carry on for a few more days
+ * before passing away. Long enough to say goodbye, short enough that the next
+ * generation takes over.
+ */
+export const ELDER_GRACE_DAYS = 6;
+
 export const STAGE_ORDER: LifeStage[] = ['baby', 'child', 'teen', 'youngAdult', 'adult', 'elder'];
 
 export function nextStage(stage: LifeStage): LifeStage | null {

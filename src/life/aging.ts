@@ -1,4 +1,4 @@
-import { LIFE_STAGES, MAX_TRAITS, nextStage } from './content';
+import { ELDER_GRACE_DAYS, LIFE_STAGES, MAX_TRAITS, nextStage } from './content';
 import type { LifeStage, Relationship, RelationKind, Sim } from './types';
 
 // ---------------------------------------------------------------------------
@@ -23,7 +23,8 @@ export function advanceAge(sim: Sim, days: number): AgeResult {
     if (daysInStage < meta.days) break;
     const following = nextStage(stage);
     if (!following) {
-      daysInStage = meta.days; // Elders stay elders.
+      // Elders stay elders, but their days must keep counting or they could
+      // never reach the end of their life.
       break;
     }
     daysInStage -= meta.days;
@@ -53,6 +54,24 @@ export function canUseInteraction(
 ): boolean {
   if (!interaction.stages) return true;
   return interaction.stages.includes(sim.stage);
+}
+
+/**
+ * Has this Sim lived their full span? Elders get a grace period past the end of
+ * their stage, then pass away.
+ */
+export function isAtEndOfLife(sim: Pick<Sim, 'stage' | 'daysInStage'>): boolean {
+  if (sim.stage !== 'elder') return false;
+  return sim.daysInStage >= LIFE_STAGES.elder.days + ELDER_GRACE_DAYS;
+}
+
+/** How close an elder is to passing, 0..1. */
+export function lifespanProgress(sim: Pick<Sim, 'stage' | 'daysInStage'>): number {
+  if (sim.stage !== 'elder') return 0;
+  return Math.max(
+    0,
+    Math.min(1, sim.daysInStage / (LIFE_STAGES.elder.days + ELDER_GRACE_DAYS)),
+  );
 }
 
 export function traitsFor(sim: Pick<Sim, 'traits'>, count = MAX_TRAITS): string[] {

@@ -9,7 +9,7 @@ import { lotValue } from '../life/objects';
 import { allSocialInteractions } from '../sim/interactions';
 import { CAREERS } from '../life/content';
 import { levelTitle, shiftFor } from '../life/careers';
-import { canUseInteraction, friendshipLabel, relationKindFor, stageProgress } from '../life/aging';
+import { canUseInteraction, friendshipLabel, lifespanProgress, relationKindFor, stageProgress } from '../life/aging';
 import { aspirationStatus, type AspirationContext } from '../life/aspirations';
 import { ASPIRATIONS, LIFE_STAGES } from '../life/content';
 import { ADOPTION_COST, canAdopt, canTryForBaby } from '../life/family';
@@ -224,7 +224,10 @@ export function LifeHUD() {
                 <MiniBar value={energy} color="#22c55e" />
               </div>
               <div className="mt-1 h-0.5 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full bg-gold/70" style={{ width: `${stageProgress(sim) * 100}%` }} />
+                <div
+                  className={`h-full ${sim.stage === 'elder' ? 'bg-sky-400/70' : 'bg-gold/70'}`}
+                  style={{ width: `${(sim.stage === 'elder' ? lifespanProgress(sim) : stageProgress(sim)) * 100}%` }}
+                />
               </div>
             </button>
           );

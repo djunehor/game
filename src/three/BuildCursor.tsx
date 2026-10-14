@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Html } from '@react-three/drei';
+import { HudHtml as Html } from './hudPortal';
 import { useLifeStore } from '../life/lifeStore';
 import { CATALOG_BY_ID } from '../life/catalog';
 import { canPlace, footprintOf } from '../life/buildMode';
