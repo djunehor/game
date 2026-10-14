@@ -101,31 +101,6 @@ export const INTERACTIONS: InteractionDef[] = [
     autonomy: { fun: 2.6, social: 1.4 },
   },
   {
-    id: 'chat_housemates',
-    label: 'Chat with Housemates',
-    emoji: '💬',
-    room: 'Lounge',
-    object: 'sofa',
-    minutes: 40,
-    motiveDeltas: { social: 50, fun: 18, comfort: 10 },
-    skillXp: { charisma: 40 },
-    grants: [{ moodletId: 'great_chat', minutes: 180 }],
-    autonomy: { social: 3.2, comfort: 0.5 },
-  },
-  {
-    id: 'flirt',
-    label: 'Shoot Your Shot',
-    emoji: '😘',
-    room: 'Lounge',
-    object: 'sofa',
-    minutes: 35,
-    motiveDeltas: { social: 42, fun: 26 },
-    skillXp: { charisma: 60 },
-    grants: [{ moodletId: 'flirted_with', minutes: 240 }],
-    autonomy: { social: 1.8, fun: 1.0 },
-    requiresSkill: { id: 'charisma', level: 2 },
-  },
-  {
     id: 'clean_lounge',
     label: 'Tidy the Lounge',
     emoji: '🧹',
@@ -369,13 +344,34 @@ export const INTERACTIONS: InteractionDef[] = [
 // registers extra interactions at runtime, so what a Sim can do is decided by
 // what is actually placed in the world.
 // ---------------------------------------------------------------------------
-let extraInteractions: InteractionDef[] = [];
+let objectInteractions: InteractionDef[] = [];
+let socialInteractions: InteractionDef[] = [];
 let registry: InteractionDef[] = [];
 
+/**
+ * Social is only satisfied by other Sims.
+ *
+ * Anything that is not a targeted (Sim-to-Sim) interaction has its Social gains
+ * and Social pull stripped, so a Sim cannot chat to a sofa to feel fulfilled.
+ */
+function stripSoloSocial(def: InteractionDef): InteractionDef {
+  if (def.social) return def;
+  const motiveDeltas = { ...def.motiveDeltas };
+  const autonomy = { ...def.autonomy };
+  delete motiveDeltas.social;
+  delete autonomy.social;
+  return { ...def, motiveDeltas, autonomy };
+}
+
 function rebuild(): void {
-  registry = [...INTERACTIONS, ...extraInteractions];
+  registry = [...INTERACTIONS, ...objectInteractions, ...socialInteractions].map(stripSoloSocial);
 }
 rebuild();
+
+/** Every social interaction currently available. */
+export function allSocialInteractions(): InteractionDef[] {
+  return socialInteractions;
+}
 
 /** Every interaction currently available in the world. */
 export function allInteractions(): InteractionDef[] {
@@ -384,7 +380,13 @@ export function allInteractions(): InteractionDef[] {
 
 /** Replace the object-driven interactions (used by buy mode). */
 export function registerObjectInteractions(defs: InteractionDef[]): void {
-  extraInteractions = defs;
+  objectInteractions = defs;
+  rebuild();
+}
+
+/** Replace the Sim-to-Sim interactions. */
+export function registerSocialInteractions(defs: InteractionDef[]): void {
+  socialInteractions = defs;
   rebuild();
 }
 

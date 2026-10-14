@@ -387,6 +387,88 @@ async function main() {
       check(true, 'Selecting a Sim switches control (single-Sim household, skipped)');
     }
 
+    // --- Social life: Sims must be able to befriend each other ------------
+    // Give the household a second Sim so there is somebody to talk to.
+    await page.evaluate(() => {
+      window.__lifeStore.getState().addSim({
+        firstName: 'Bola',
+        lastName: 'Okafor',
+        gender: 'M',
+        stage: 'youngAdult',
+        traits: ['cheerful', 'goofball'],
+        aspiration: 'popularity',
+        avatar: '😎',
+        accentColor: '#22b573',
+        career: null,
+      });
+    });
+    await sleep(1500);
+
+    s = await state();
+    check(s.sims.length >= 2, `A second Sim can move in (${s.sims.length} in the household)`);
+
+    const actor = s.sims[0];
+    const partner = s.sims.find((sim) => sim.id !== actor.id);
+    const friendshipBefore = actor.relationships?.[partner.id]?.friendship ?? null;
+    check(friendshipBefore !== null, 'Household members have a relationship with each other');
+
+    // Order a chat between them and run the clock until it resolves.
+    await page.evaluate(
+      ({ a, b }) => {
+        window.__simStore.getState().cancel(a);
+        window.__simStore.getState().order(a, 'social_chat', b);
+      },
+      { a: actor.id, b: partner.id },
+    );
+    await sleep(600);
+    const ordered = (await state()).sims.find((sim) => sim.id === actor.id);
+    check(ordered.active === 'social_chat', 'A social action can be ordered against another Sim');
+    check(ordered.activeTarget === partner.id, 'The social action is aimed at the other Sim');
+
+    await page.evaluate(() => window.__simStore.getState().setSpeed(3));
+    await page.waitForFunction(
+      ({ a, b }) => {
+        const sim = window.__life().sims.find((x) => x.id === a);
+        const rel = sim?.relationships?.[b]?.friendship ?? 0;
+        return rel > 0 && sim.active !== 'social_chat';
+      },
+      { timeout: 30000 },
+      { a: actor.id, b: partner.id },
+    ).catch(() => {});
+
+    const afterChat = (await state()).sims.find((sim) => sim.id === actor.id);
+    const friendshipAfter = afterChat.relationships?.[partner.id]?.friendship ?? 0;
+    check(
+      friendshipAfter > (friendshipBefore ?? 0),
+      `Chatting raises friendship (${friendshipBefore} → ${friendshipAfter})`,
+    );
+
+    const partnerSide = (await state()).sims.find((sim) => sim.id === partner.id);
+    check(
+      (partnerSide.relationships?.[actor.id]?.friendship ?? 0) === friendshipAfter,
+      'The relationship moved for both Sims',
+    );
+    await shot('06-social');
+
+    // Autonomous socialising: a lonely Sim with company should talk to them.
+    await page.evaluate(
+      ({ a }) => {
+        window.__simStore.setState((sim) => ({
+          avatars: {
+            ...sim.avatars,
+            [a]: { ...sim.avatars[a], motives: { ...sim.avatars[a].motives, social: 3 }, active: null, queue: [] },
+          },
+        }));
+      },
+      { a: actor.id },
+    );
+    await sleep(1200);
+    const lonely = (await state()).sims.find((sim) => sim.id === actor.id);
+    check(
+      lonely.active?.startsWith('social_') === true,
+      `A lonely Sim seeks company on their own (doing ${lonely.active})`,
+    );
+
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
     await sleep(2500);

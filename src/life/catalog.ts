@@ -73,7 +73,6 @@ export const CATALOG: CatalogObject[] = [
     ratings: { comfort: 6, fun: 2 },
     interactions: [
       { key: 'relax', label: 'Relax', emoji: '🛋️', minutes: 50, uses: ['comfort', 'fun'], autonomy: { comfort: 2.6, fun: 1.4 } },
-      { key: 'chat', label: 'Chat', emoji: '💬', minutes: 40, uses: ['comfort'], bonus: { social: 34, fun: 16 }, skill: { id: 'charisma', xp: 40 }, moodlet: { id: 'great_chat', minutes: 180 }, autonomy: { social: 3.2 } },
     ],
   },
   {
@@ -87,7 +86,7 @@ export const CATALOG: CatalogObject[] = [
     footprint: [2, 1], description: 'Technically fits two people who like each other.',
     ratings: { comfort: 7, social: 4 },
     interactions: [
-      { key: 'snuggle', label: 'Snuggle', emoji: '🥰', minutes: 45, uses: ['comfort', 'social'], bonus: { fun: 22 }, moodlet: { id: 'flirted_with', minutes: 240 }, autonomy: { social: 2.4, comfort: 1.6 } },
+      { key: 'snuggle', label: 'Snuggle Up', emoji: '🥰', minutes: 45, uses: ['comfort'], bonus: { fun: 22 }, moodlet: { id: 'pampered', minutes: 240 }, autonomy: { comfort: 2.4 } },
       { key: 'relax', label: 'Relax', emoji: '💞', minutes: 45, uses: ['comfort'], autonomy: { comfort: 2.4 } },
     ],
   },

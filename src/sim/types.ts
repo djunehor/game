@@ -103,6 +103,19 @@ export interface SkillProgress {
 export type Skills = Partial<Record<SkillId, SkillProgress>>;
 
 // --- Interactions -----------------------------------------------------------
+export interface SocialSpec {
+  /** Relationship change applied to BOTH Sims on completion. */
+  relationship: { friendship?: number; romance?: number };
+  /** Motive changes applied to the other Sim. */
+  targetMotiveDeltas?: Partial<Record<MotiveId, number>>;
+  /** Moodlet granted to the other Sim. */
+  targetMoodlet?: { id: string; minutes: number };
+  /** Minimum friendship/romance needed before this is offered. */
+  requiresRelationship?: { friendship?: number; romance?: number };
+  /** Life stages that may be the target. */
+  targetStages?: string[];
+}
+
 export interface InteractionDef {
   id: string;
   label: string;
@@ -129,10 +142,14 @@ export interface InteractionDef {
   requiresSkill?: { id: SkillId; level: number };
   /** Life stages allowed to use this (undefined = everyone). */
   stages?: string[];
+  /** Present when the interaction is directed at another Sim. */
+  social?: SocialSpec;
 }
 
 export interface ActiveInteraction {
   defId: string;
+  /** Set when the interaction is aimed at another Sim. */
+  targetSimId?: string;
   /** Sim minutes already spent. */
   elapsed: number;
   /** Total sim minutes required (snapshot of def.minutes at start). */
@@ -155,6 +172,10 @@ export interface SimAvatar {
   queue: string[];
   /** Recently completed interaction ids (most recent first) for variety. */
   recent?: string[];
+  /** Life stage, supplied by the household layer (used to gate social targets). */
+  stage?: string;
+  /** This Sim's view of everyone else, supplied by the household layer. */
+  relationships?: Record<string, { friendship: number; romance: number }>;
 }
 
 // --- Clock ------------------------------------------------------------------

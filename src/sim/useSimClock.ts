@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { syncLifeClock, syncLifeSims } from '../life/bridge';
+import { connectSocialOutcomes, syncLifeClock, syncLifeSims } from '../life/bridge';
 import { useLifeStore } from '../life/lifeStore';
 import { useSimStore } from './simStore';
 
@@ -16,6 +16,12 @@ export function useSimClock(): void {
   const castKey = useLifeStore((s) =>
     s.household ? s.household.sims.map((sim) => `${sim.id}:${sim.traits.join('+')}`).join(',') : '',
   );
+
+  // Let resolved Sim-to-Sim interactions reach the household.
+  useEffect(() => {
+    connectSocialOutcomes();
+    return () => useSimStore.getState().setSocialSink(null);
+  }, []);
 
   // Seed / re-seed Sims whenever the cast changes.
   useEffect(() => {

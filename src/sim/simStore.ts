@@ -16,6 +16,16 @@ import type { InteractionDef, SimAvatar, SimClock, SimSpeed } from './types';
 // continuous life-sim never fight over the same fields.
 // ---------------------------------------------------------------------------
 
+export interface SocialOutcomeMessage {
+  actorId: string;
+  targetId: string;
+  defId: string;
+}
+
+export type SocialSink = (outcome: SocialOutcomeMessage) => void;
+
+let socialSink: SocialSink | null = null;
+
 export interface SimEvent {
   id: string;
   avatarId: string;
@@ -52,11 +62,13 @@ interface SimStoreState {
   upsertAvatar: (id: string, nickname: string, traits: string | string[]) => void;
   removeAvatar: (id: string) => void;
   /** Player order — runs now if idle, otherwise queues. */
-  order: (avatarId: string, interactionId: string) => void;
+  order: (avatarId: string, interactionId: string, targetSimId?: string) => void;
   cancel: (avatarId: string) => void;
   clearQueueOf: (avatarId: string) => void;
   /** Advance the world by `realSeconds` of wall-clock time. */
   tick: (realSeconds: number) => void;
+  /** Called whenever a targeted (Sim-to-Sim) interaction resolves. */
+  setSocialSink: (sink: SocialSink | null) => void;
   reset: () => void;
 }
 
@@ -99,11 +111,16 @@ export const useSimStore = create<SimStoreState>((set, get) => ({
       return { avatars: next };
     }),
 
-  order: (avatarId, interactionId) =>
+  order: (avatarId, interactionId, targetSimId) =>
     set((s) => {
       const avatar = s.avatars[avatarId];
       if (!avatar) return s;
-      return { avatars: { ...s.avatars, [avatarId]: enqueueInteraction(avatar, interactionId) } };
+      return {
+        avatars: {
+          ...s.avatars,
+          [avatarId]: enqueueInteraction(avatar, interactionId, targetSimId),
+        },
+      };
     }),
 
   cancel: (avatarId) =>
@@ -131,6 +148,8 @@ export const useSimStore = create<SimStoreState>((set, get) => ({
     const nextAvatars: Record<string, SimAvatar> = {};
     const newEvents: SimEvent[] = [];
     let crisisCount = 0;
+    const socialOutcomes: { actorId: string; targetId: string; defId: string }[] = [];
+    const allIds = Object.keys(state.avatars);
 
     for (const avatar of Object.values(state.avatars)) {
       const baseGate = allowedForAvatar(avatar, state.hohId);
@@ -139,7 +158,11 @@ export const useSimStore = create<SimStoreState>((set, get) => ({
         now,
         autonomyEnabled: state.autonomyEnabled,
         allowed: (def) => baseGate(def) && (extra ? extra(avatar.id, def) : true),
+        socialTargets: allIds
+          .filter((id) => id !== avatar.id)
+          .map((id) => ({ id, stage: state.avatars[id]?.stage })),
       });
+      if (result.social) socialOutcomes.push(result.social);
       nextAvatars[avatar.id] = result.avatar;
 
       const at = Math.round(now + minutes);
@@ -179,6 +202,13 @@ export const useSimStore = create<SimStoreState>((set, get) => ({
       events: [...newEvents.reverse(), ...s.events].slice(0, MAX_EVENTS),
       crisisCount,
     }));
+
+    // Hand resolved social interactions to whoever owns relationships.
+    for (const outcome of socialOutcomes) socialSink?.(outcome);
+  },
+
+  setSocialSink: (sink) => {
+    socialSink = sink;
   },
 
   reset: () =>

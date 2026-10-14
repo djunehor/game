@@ -1,6 +1,8 @@
 import { chooseAutonomousInteraction, rankInteractions, scoreInteraction, seedFromId } from '../src/sim/autonomy';
 import { INTERACTIONS, getInteraction } from '../src/sim/interactions';
 import { MOTIVE_IDS, type Motives, type Skills } from '../src/sim/types';
+import { registerSocialInteractions } from '../src/sim/interactions';
+import { SOCIAL_INTERACTIONS } from '../src/life/social';
 
 // ---------------------------------------------------------------------------
 // Autonomy: the utility AI that decides what a Sim does when left alone.
@@ -25,7 +27,7 @@ function motives(overrides: Partial<Motives> = {}): Motives {
   return { ...base, ...overrides };
 }
 
-function ctx(over: Partial<{ motives: Motives; skills: Skills; traits: string[]; now: number; seed: number; recent: string[] }> = {}) {
+function ctx(over: Partial<{ motives: Motives; skills: Skills; traits: string[]; now: number; seed: number; recent: string[]; socialTargets: string[] }> = {}) {
   return {
     motives: over.motives ?? motives(),
     skills: over.skills ?? {},
@@ -33,8 +35,13 @@ function ctx(over: Partial<{ motives: Motives; skills: Skills; traits: string[];
     now: over.now ?? 0,
     seed: over.seed ?? 0.42,
     recent: over.recent,
+    socialTargets: over.socialTargets,
   };
 }
+
+// Social interactions are registered by the household layer at runtime; the
+// sim core needs them present to reason about a Sim's social life.
+registerSocialInteractions(SOCIAL_INTERACTIONS);
 
 console.log('→ Testing Sim Autonomy (utility AI)');
 
@@ -67,11 +74,33 @@ assert(seedFromId('ai-1') !== seedFromId('ai-2'), 'seedFromId differs per avatar
   assert(choice?.id === 'use_toilet', `Bladder emergency wins over other needs (picked ${choice?.label})`);
 }
 
-// 4. A lonely Sim seeks company.
+// 4. A lonely Sim seeks company — but only if there is somebody to talk to.
 {
   const lonely = motives({ social: 4 });
-  const choice = chooseAutonomousInteraction(ctx({ motives: lonely }));
-  assert((choice?.motiveDeltas.social ?? 0) > 0, `Lonely Sim seeks social contact (picked ${choice?.label})`);
+  const withCompany = chooseAutonomousInteraction(
+    ctx({ motives: lonely, socialTargets: ['friend-1'] }),
+  );
+  assert(
+    Boolean(withCompany?.social),
+    `Lonely Sim with company talks to them (picked ${withCompany?.label})`,
+  );
+
+  const alone = chooseAutonomousInteraction(ctx({ motives: lonely, socialTargets: [] }));
+  assert(!alone?.social, `Lonely Sim with nobody around does not socialise (picked ${alone?.label ?? 'nothing'})`);
+}
+
+// 4b. Furniture can never satisfy the Social motive.
+{
+  const lonely = motives({ social: 5 });
+  const all = rankInteractions(ctx({ motives: lonely, socialTargets: [] }));
+  assert(
+    all.every((entry) => (entry.def.motiveDeltas.social ?? 0) <= 0),
+    'No non-social interaction grants Social',
+  );
+  assert(
+    all.every((entry) => (entry.def.autonomy.social ?? 0) <= 0),
+    'No non-social interaction pulls a Sim toward it for Social reasons',
+  );
 }
 
 // 5. Everything satisfied → the Sim idles instead of acting pointlessly.

@@ -1,4 +1,10 @@
-import { chooseAutonomousInteraction, seedFromId, type AutonomyContext } from './autonomy';
+import {
+  chooseAutonomousInteraction,
+  normaliseTargets,
+  seedFromId,
+  type AutonomyContext,
+  type SocialTarget,
+} from './autonomy';
 import { getInteraction } from './interactions';
 import { addMoodlet, createMoodlet, pruneMoodlets } from './moodlets';
 import { applyMotiveDeltas, createInitialMotives, decayMotives } from './motives';
@@ -31,11 +37,19 @@ export interface LevelUp {
   level: number;
 }
 
+export interface SocialOutcome {
+  actorId: string;
+  targetId: string;
+  defId: string;
+}
+
 export interface TickResult {
   avatar: SimAvatar;
   completed: InteractionDef | null;
   started: InteractionDef | null;
   levelUps: LevelUp[];
+  /** Set when a targeted interaction resolved. */
+  social: SocialOutcome | null;
 }
 
 export interface TickOptions {
@@ -43,26 +57,72 @@ export interface TickOptions {
   now: number;
   autonomyEnabled?: boolean;
   allowed?: (def: InteractionDef) => boolean;
+  /** Other Sims available to socialise with. */
+  socialTargets?: (string | SocialTarget)[];
 }
 
 /** Start an interaction immediately, replacing whatever is running. */
+/** Targets the interaction actually permits (stage + closeness). */
+function eligibleSocialTargets(
+  def: InteractionDef,
+  actor: SimAvatar,
+  targets: (string | SocialTarget)[] | undefined,
+): SocialTarget[] {
+  const spec = def.social;
+  if (!spec) return [];
+  return normaliseTargets(targets).filter((target) => {
+    if (spec.targetStages && target.stage && !spec.targetStages.includes(target.stage)) return false;
+    const rel = actor.relationships?.[target.id];
+    if (spec.requiresRelationship) {
+      if (!rel) return false;
+      if (
+        spec.requiresRelationship.friendship !== undefined &&
+        rel.friendship < spec.requiresRelationship.friendship
+      ) {
+        return false;
+      }
+      if (
+        spec.requiresRelationship.romance !== undefined &&
+        rel.romance < spec.requiresRelationship.romance
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
 export function startInteraction(
   avatar: SimAvatar,
   defId: string,
   startedBy: 'player' | 'autonomy',
+  targetSimId?: string,
 ): SimAvatar {
   const def = getInteraction(defId);
   if (!def) return avatar;
   return {
     ...avatar,
-    active: { defId, elapsed: 0, duration: def.minutes, startedBy },
+    active: {
+      defId,
+      elapsed: 0,
+      duration: def.minutes,
+      startedBy,
+      targetSimId: def.social ? targetSimId : undefined,
+    },
   };
 }
 
 /** Queue a player order; it runs when the current interaction finishes. */
-export function enqueueInteraction(avatar: SimAvatar, defId: string): SimAvatar {
-  if (!getInteraction(defId)) return avatar;
-  if (!avatar.active) return startInteraction(avatar, defId, 'player');
+export function enqueueInteraction(
+  avatar: SimAvatar,
+  defId: string,
+  targetSimId?: string,
+): SimAvatar {
+  const def = getInteraction(defId);
+  if (!def) return avatar;
+  if (!avatar.active) return startInteraction(avatar, defId, 'player', targetSimId);
+  // Queued entries carry their target in the id list only for social actions,
+  // so keep the simple queue for object interactions.
   return { ...avatar, queue: [...avatar.queue, defId] };
 }
 
@@ -120,7 +180,7 @@ function applyCompletion(
  *   4. Pull the next order off the queue, or pick something autonomously.
  */
 export function tickAvatar(avatar: SimAvatar, minutes: number, options: TickOptions): TickResult {
-  const { now, autonomyEnabled = true, allowed } = options;
+  const { now, autonomyEnabled = true, allowed, socialTargets = [] } = options;
   const endOfTick = now + minutes;
 
   let next: SimAvatar = {
@@ -130,6 +190,7 @@ export function tickAvatar(avatar: SimAvatar, minutes: number, options: TickOpti
   };
 
   let completed: InteractionDef | null = null;
+  let social: SocialOutcome | null = null;
   const levelUps: LevelUp[] = [];
 
   // --- Progress the active interaction -------------------------------------
@@ -139,9 +200,13 @@ export function tickAvatar(avatar: SimAvatar, minutes: number, options: TickOpti
       const def = getInteraction(next.active.defId);
       if (def) {
         const applied = applyCompletion(next, def, endOfTick);
+        const targetId = next.active.targetSimId;
         next = { ...applied.avatar, active: null };
         levelUps.push(...applied.levelUps);
         completed = def;
+        if (def.social && targetId) {
+          social = { actorId: next.id, targetId, defId: def.id };
+        }
       } else {
         next = { ...next, active: null };
       }
@@ -156,6 +221,7 @@ export function tickAvatar(avatar: SimAvatar, minutes: number, options: TickOpti
     let pendingId: string | undefined;
     let startedBy: 'player' | 'autonomy' = 'player';
     let fromQueue = false;
+    let autoTargetId: string | undefined;
 
     if (next.queue.length > 0) {
       pendingId = next.queue[0];
@@ -169,11 +235,22 @@ export function tickAvatar(avatar: SimAvatar, minutes: number, options: TickOpti
         seed: seedFromId(next.id),
         allowed,
         recent: next.recent,
+        socialTargets,
       };
       const chosen = chooseAutonomousInteraction(ctx);
       if (chosen) {
         pendingId = chosen.id;
         startedBy = 'autonomy';
+        if (chosen.social) {
+          const eligible = eligibleSocialTargets(chosen, next, socialTargets);
+          if (eligible.length > 0) {
+            // Spread the attention around rather than always picking the first.
+            const pick = Math.floor(Math.abs(Math.sin(endOfTick)) * eligible.length);
+            autoTargetId = eligible[pick % eligible.length].id;
+          } else {
+            pendingId = undefined; // nobody suitable after all
+          }
+        }
       }
     }
 
@@ -183,7 +260,13 @@ export function tickAvatar(avatar: SimAvatar, minutes: number, options: TickOpti
         next = {
           ...next,
           queue: fromQueue ? next.queue.slice(1) : next.queue,
-          active: { defId: def.id, elapsed: 0, duration: def.minutes, startedBy },
+          active: {
+            defId: def.id,
+            elapsed: 0,
+            duration: def.minutes,
+            startedBy,
+            targetSimId: def.social ? autoTargetId : undefined,
+          },
         };
         started = def;
       } else if (fromQueue) {
@@ -193,5 +276,5 @@ export function tickAvatar(avatar: SimAvatar, minutes: number, options: TickOpti
     }
   }
 
-  return { avatar: next, completed, started, levelUps };
+  return { avatar: next, completed, started, levelUps, social };
 }

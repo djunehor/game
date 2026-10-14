@@ -47,6 +47,7 @@ export function App() {
         selectedSimId: life.selectedSimId,
         mode: life.mode,
         wallMode: life.wallMode,
+        socialTargetId: life.socialTargetId,
         objectCount: home?.lot.length ?? 0,
         wallCount: home?.plot.walls.length ?? 0,
         clock: sim.clock.totalMinutes,
@@ -64,6 +65,13 @@ export function App() {
               z: collider ? Number(collider.z.toFixed(2)) : null,
               mood: avatar ? computeMood(avatar, sim.clock.totalMinutes).emotion : null,
               active: avatar?.active?.defId ?? null,
+              activeTarget: avatar?.active?.targetSimId ?? null,
+              relationships: Object.fromEntries(
+                Object.entries(member.relationships).map(([id, rel]) => [
+                  id,
+                  { friendship: Math.round(rel.friendship), romance: Math.round(rel.romance), kind: rel.kind },
+                ]),
+              ),
             };
           }) ?? [],
       };

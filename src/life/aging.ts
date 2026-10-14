@@ -98,6 +98,14 @@ export function adjustRelationship(
   return next;
 }
 
+/** Apply the same change to both sides of a relationship. */
+export function applyMutualRelationship(
+  rel: Relationship,
+  delta: RelationshipDelta,
+): Relationship {
+  return adjustRelationship(rel, delta);
+}
+
 export function friendshipLabel(value: number): string {
   if (value <= -50) return 'Despised';
   if (value <= -10) return 'Tense';

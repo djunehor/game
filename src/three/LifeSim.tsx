@@ -82,6 +82,7 @@ export function LifeSim({ sim, index }: { sim: Sim; index: number }) {
 
   const selectedSimId = useLifeStore((s) => s.selectedSimId);
   const selectSim = useLifeStore((s) => s.selectSim);
+  const setSocialTarget = useLifeStore((s) => s.setSocialTarget);
   const isSelected = selectedSimId === sim.id;
 
   const activeDefId = useSimStore((s) => s.avatars[sim.id]?.active?.defId ?? null);
@@ -173,7 +174,18 @@ export function LifeSim({ sim, index }: { sim: Sim; index: number }) {
     <group
       onClick={(e) => {
         e.stopPropagation();
-        selectSim(sim.id);
+        const current = useLifeStore.getState().selectedSimId;
+        if (current && current !== sim.id) {
+          // Clicking someone other than the selected Sim offers them as company.
+          setSocialTarget(sim.id);
+          useLifeStore.getState().notify(
+            `Selected ${sim.firstName} as company`,
+            '👥',
+            'info',
+          );
+        } else {
+          selectSim(sim.id);
+        }
       }}
     >
       {/* The plumbob rides the Sim, not the group origin. */}

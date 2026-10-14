@@ -6,9 +6,11 @@ import { allInteractions } from '../sim/interactions';
 import { LIFE_ROOM_LABELS } from '../life/catalog';
 import { useLifeStore } from '../life/lifeStore';
 import { lotValue } from '../life/objects';
+import { allSocialInteractions } from '../sim/interactions';
 import { CAREERS, LIFE_STAGES } from '../life/content';
 import { levelTitle, shiftFor } from '../life/careers';
-import { canUseInteraction, stageProgress } from '../life/aging';
+import { canUseInteraction, friendshipLabel, relationKindFor, stageProgress } from '../life/aging';
+import { getSkillLevel } from '../sim/skills';
 
 // ---------------------------------------------------------------------------
 // Life-mode HUD: household portraits, money, clock/speed, and the selected
@@ -47,6 +49,25 @@ export function LifeHUD() {
   const events = useSimStore((s) => s.events);
 
   const parts = clockParts(clock);
+
+  const socialTargetId = useLifeStore((s) => s.socialTargetId);
+  const setSocialTarget = useLifeStore((s) => s.setSocialTarget);
+
+  /** Every social action the selected Sim could take right now. */
+  const socialActions = useMemo(() => {
+    if (!household || !selectedSimId) return [];
+    const actor = household.sims.find((s) => s.id === selectedSimId);
+    if (!actor) return [];
+    const skills = avatars[selectedSimId]?.skills ?? {};
+    return allSocialInteractions().filter((def) => {
+      if (def.stages && !def.stages.includes(actor.stage)) return false;
+      if (def.requiresSkill) {
+        const level = getSkillLevel(skills, def.requiresSkill.id);
+        if (level < def.requiresSkill.level) return false;
+      }
+      return true;
+    });
+  }, [household, selectedSimId, avatars]);
 
   const interactions = useMemo(() => {
     const all = allInteractions().filter((def) => def.id.startsWith('obj:'));
@@ -194,6 +215,65 @@ export function LifeHUD() {
           </button>
         </div>
       )}
+
+      {/* Social card: who the selected Sim is talking to, and what they can do */}
+      {socialTargetId && (() => {
+        const partner = household.sims.find((m) => m.id === socialTargetId);
+        const actor = household.sims.find((m) => m.id === selected?.id);
+        if (!partner || !actor) return null;
+        const rel = actor.relationships[partner.id] ?? { friendship: 0, romance: 0, kind: 'stranger' as const };
+        const kind = relationKindFor(rel);
+        return (
+          <div className="absolute right-3 bottom-56 z-30 w-64 rounded-2xl border border-white/15 bg-slate-950/92 p-2.5 text-white shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gold/80">With</span>
+              <button
+                type="button"
+                onClick={() => setSocialTarget(null)}
+                className="rounded px-1 text-[10px] text-white/50 hover:bg-white/10 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-0.5 flex items-center gap-2">
+              <span className="text-lg">{partner.avatar}</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-bold">{partner.firstName}</div>
+                <div className="text-[9px] text-white/50">
+                  {friendshipLabel(rel.friendship)} · {kind}
+                  {rel.romance > 0 ? ` · 💗 ${Math.round(rel.romance)}` : ''}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-col gap-1">
+              {socialActions.map((def) => {
+                const need = def.social?.requiresRelationship;
+                const locked =
+                  (need?.friendship !== undefined && rel.friendship < need.friendship) ||
+                  (need?.romance !== undefined && rel.romance < need.romance) ||
+                  (def.social?.targetStages !== undefined &&
+                    !def.social.targetStages.includes(partner.stage));
+                return (
+                  <button
+                    key={def.id}
+                    type="button"
+                    disabled={locked}
+                    title={locked ? 'Not close enough yet' : def.label}
+                    onClick={() => order(selected.id, def.id, partner.id)}
+                    className={`flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-[11px] font-semibold transition ${
+                      locked ? 'cursor-not-allowed bg-white/5 text-white/30' : 'cursor-pointer bg-white/5 hover:bg-white/15'
+                    }`}
+                  >
+                    <span>{def.emoji}</span>
+                    <span className="flex-1">{def.label}</span>
+                    <span className="text-[9px] text-white/40">{def.minutes}m</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Notifications */}
       <div className="pointer-events-none absolute top-20 right-3 z-30 flex w-64 flex-col gap-1.5">

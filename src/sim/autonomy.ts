@@ -15,6 +15,54 @@ export interface AutonomyContext {
   allowed?: (def: InteractionDef) => boolean;
   /** Recently performed interaction ids to discourage repetition. */
   recent?: string[];
+  /** Other Sims this Sim could interact with right now. */
+  socialTargets?: (string | { id: string; stage?: string })[];
+  /** The actor's relationships, used to gate affectionate interactions. */
+  relationships?: Record<string, { friendship: number; romance: number }>;
+}
+
+export interface SocialTarget {
+  id: string;
+  stage?: string;
+}
+
+export function normaliseTargets(
+  targets: (string | SocialTarget)[] | undefined,
+): SocialTarget[] {
+  if (!targets) return [];
+  return targets.map((t) => (typeof t === 'string' ? { id: t } : t));
+}
+
+/**
+ * Can this Sim perform `def` on anybody right now? Checks the life stages the
+ * interaction accepts and how close the two of them are.
+ */
+function hasEligibleSocialTarget(def: InteractionDef, ctx: AutonomyContext): boolean {
+  const targets = normaliseTargets(ctx.socialTargets);
+  if (targets.length === 0) return false;
+  const spec = def.social!;
+  return targets.some((target) => {
+    if (spec.targetStages && target.stage && !spec.targetStages.includes(target.stage)) {
+      return false;
+    }
+    const rel = ctx.relationships?.[target.id];
+    if (spec.requiresRelationship) {
+      if (!rel) return false;
+      if (
+        spec.requiresRelationship.friendship !== undefined &&
+        rel.friendship < spec.requiresRelationship.friendship
+      ) {
+        return false;
+      }
+      if (
+        spec.requiresRelationship.romance !== undefined &&
+        rel.romance < spec.requiresRelationship.romance
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
 }
 
 function hash(a: number, b: number): number {
@@ -39,6 +87,8 @@ export function seedFromId(id: string): number {
 export function scoreInteraction(def: InteractionDef, ctx: AutonomyContext): number | null {
   if (ctx.allowed && !ctx.allowed(def)) return null;
   if (!meetsSkillRequirement(ctx.skills, def.requiresSkill)) return null;
+  // Socialising needs somebody eligible to socialise with.
+  if (def.social && !hasEligibleSocialTarget(def, ctx)) return null;
 
   let score = 0;
   for (const [motive, weight] of Object.entries(def.autonomy) as [keyof Motives, number][]) {

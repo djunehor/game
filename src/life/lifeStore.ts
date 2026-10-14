@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import type { Gender, Hairstyle } from '../types';
 import { MOTIVE_IDS } from '../sim/types';
 import { useSimStore } from '../sim/simStore';
-import { registerObjectInteractions } from '../sim/interactions';
+import { registerObjectInteractions, registerSocialInteractions } from '../sim/interactions';
+import { SOCIAL_INTERACTIONS } from './social';
 import { advanceAge } from './aging';
 import { CATALOG_BY_ID } from './catalog';
 import { canPlace, objectPrice, sellValue, snap, type PlacementCheck } from './buildMode';
@@ -86,6 +87,8 @@ interface LifeState {
   tool: BuildTool;
   /** How much of the walls to draw: full, cut away, or hidden. */
   wallMode: WallMode;
+  /** Who the selected Sim is about to talk to. */
+  socialTargetId: string | null;
   /** Last day offset already processed, to detect rollovers. */
   lastDayOffset: number;
   workedToday: Record<string, boolean>;
@@ -102,6 +105,7 @@ interface LifeState {
   /** Build-mode tools that act on the land itself. */
   setTool: (tool: BuildTool) => void;
   cycleWallMode: () => void;
+  setSocialTarget: (id: string | null) => void;
   toggleWall: (key: string) => void;
   paintTile: (x: number, z: number, kind: TileKind) => void;
   /** Cached room detection for the current plot + furniture. */
@@ -205,6 +209,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
   inspectedUid: null,
   tool: 'object',
   wallMode: 'cut',
+  socialTargetId: null,
   lastDayOffset: 0,
   workedToday: {},
   notifications: [],
@@ -267,6 +272,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
   setTool: (tool) => set({ tool, placingCatalogId: null, placingUid: null, ghost: null }),
   cycleWallMode: () =>
     set((s) => ({ wallMode: s.wallMode === 'cut' ? 'up' : s.wallMode === 'up' ? 'down' : 'cut' })),
+  setSocialTarget: (id) => set({ socialTargetId: id }),
 
   toggleWall: (key) => {
     const { household } = get();
@@ -324,7 +330,12 @@ export const useLifeStore = create<LifeState>((set, get) => ({
     const region = regions.find((r) => r.tiles.includes(index));
     return region ? region.label : 'Outside';
   },
-  selectSim: (id) => set({ selectedSimId: id }),
+  selectSim: (id) =>
+    set((s) => ({
+      selectedSimId: id,
+      // Picking someone else to look at makes them the obvious person to talk to.
+      socialTargetId: s.socialTargetId === id ? null : s.socialTargetId,
+    })),
 
   startPlacing: (catalogId) =>
     set({ placingCatalogId: catalogId, placingUid: null, mode: 'build', rotation: 0 }),
@@ -640,6 +651,7 @@ export function registerLotInteractions(lot: PlacedObject[]): void {
   const { household, regions } = useLifeStore.getState();
   if (!household) return;
   registerObjectInteractions(interactionsForLot(lot, household.plot, regions()));
+  registerSocialInteractions(SOCIAL_INTERACTIONS);
 }
 
 /** Persist the household whenever it changes (low frequency — player actions only). */
