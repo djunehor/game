@@ -1,20 +1,15 @@
 {
-  "name": "biggie-house",
+  "name": "life-sim",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:server": "tsx server/index.ts",
-    "build": "tsc --noEmit && tsc -p tsconfig.server.json && vite build",
+    "build": "tsc --noEmit && vite build",
     "lint": "tsc --noEmit",
-    "typecheck:server": "tsc -p tsconfig.server.json",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler deploy",
-    "test": "tsx tests/engine-test.ts && tsx tests/test-interactions-logic.ts && tsx tests/test-interactions-ui.tsx && tsx tests/test-avatar-customization-logic.ts && tsx tests/test-mocap-animations-logic.ts && tsx tests/test-solid-collision-logic.ts && tsx tests/test-root-motion.ts && tsx tests/test-combinations.ts && tsx tests/test-voice-logic.ts && tsx tests/test-spatial-registry.ts && tsx tests/test-vehicle-logic.ts && tsx tests/test-vehicle-ui.tsx && tsx tests/test-infinite-world-logic.ts && tsx tests/test-world-interaction-logic.ts && tsx tests/test-infinite-world-ui.tsx && tsx tests/test-economy-logic.ts && tsx tests/test-economy-ui.tsx && tsx tests/test-clean-screen-logic.ts && tsx tests/test-clean-screen-ui.tsx",
-    "test:server": "tsx server/houseManager.test.ts && tsx server/gameState.test.ts && tsx server/persist.test.ts && tsx server/accounts.test.ts && tsx server/server.test.ts && tsx server/sharedState.test.ts && tsx server/auth.test.ts && tsx server/onboarding.test.ts",
-    "test:worker": "tsx worker/ws-verify.test.ts",
-    "test:smoke": "node scripts/smoke-test.mjs"
+    "test": "tsx tests/test-lot-foundation-logic.ts && tsx tests/test-life-build-logic.ts && tsx tests/test-life-household-logic.ts && tsx tests/test-sim-needs-logic.ts && tsx tests/test-sim-autonomy-logic.ts && tsx tests/test-sim-engine-logic.ts && tsx tests/test-sim-panel-ui.tsx && tsx tests/test-root-motion.ts",
+    "test:e2e": "node tests/e2e/playable.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
@@ -22,7 +17,6 @@
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "three": "^0.186.1",
-    "ws": "^8.22.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -38,7 +32,6 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vite": "^8.3.4",
-    "wrangler": "^4.149.0"
+    "vite": "^8.3.4"
   }
 }

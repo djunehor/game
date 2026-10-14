@@ -33,3 +33,6 @@ screenshots
 .wrangler
 .env
 .env.local
+
+# End-to-end harness screenshots
+e2e-shots

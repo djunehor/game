@@ -1,240 +1,83 @@
-import { useEffect, useState } from 'react';
-import { useGame } from './store';
-import { sound } from './engine/sound';
-import { useNet } from './engine/net';
-import { useAuth } from './engine/auth';
-import { AuthScreen } from './components/AuthScreen';
-import { CharacterCreator } from './components/CharacterCreator';
-import { multiplayer } from './engine/multiplayer';
-import { Hud } from './components/Hud';
-import { GameOverlay } from './components/GameOverlay';
-import { SocialPanel } from './components/SocialPanel';
-import { VirtualJoystick } from './components/VirtualJoystick';
-import { HouseChat } from './components/HouseChat';
-import { HohChallengeOverlay } from './components/HohChallengeOverlay';
-import { NominationsModal } from './components/NominationsModal';
-import { EvictionModal } from './components/EvictionModal';
-import { GameOverModal } from './components/GameOverModal';
-import { DialogueModal } from './components/DialogueModal';
-import { DiaryRoomModal } from './components/DiaryRoomModal';
-import { EmoteBar } from './components/EmoteBar';
-import { StoreModal } from './components/StoreModal';
-import { WalletHUD } from './components/WalletHUD';
-import { CommerceModal } from './components/CommerceModal';
-import { TransferModal } from './components/TransferModal';
-import { GuidedTourModal } from './components/GuidedTourModal';
+import { useEffect } from 'react';
+import { CreateHousehold } from './components/CreateHousehold';
+import { LifeHUD } from './components/LifeHUD';
+import { BuildBuyPanel } from './components/BuildBuyPanel';
 import { ToastContainer } from './components/ToastContainer';
 import { GameCanvas } from './three/GameCanvas';
-import { useTour } from './three/tourStore';
-import type { Housemate } from './types';
+import { registerLotInteractions, useLifeStore } from './life/lifeStore';
+import { useSimClock } from './sim/useSimClock';
+import { useSimStore } from './sim/simStore';
+import { getAvatarCollider } from './three/collisionStore';
+import { computeMood } from './sim/moodlets';
+
+// ---------------------------------------------------------------------------
+// A life simulator.
+//
+// Create a household, move them onto a plot of land, and live. Sims have
+// motives, moods, skills and free will. You build the house they live in,
+// buy the objects that make their lives better, and they grow up, work and
+// form relationships on their own.
+// ---------------------------------------------------------------------------
 
 export function App() {
-  const rawState = useGame((s) => s.state);
-  const token = useAuth((s) => s.token);
-  const playerId = useAuth((s) => s.playerId);
-  const profile = useAuth((s) => s.profile);
-  const startGame = useGame((s) => s.startGame);
-  const resetGame = useGame((s) => s.resetGame);
+  const household = useLifeStore((s) => s.household);
 
-  // Only treat a locally-saved game as valid if it belongs to the logged-in account.
-  const state = rawState && (!playerId || rawState.player.id === playerId) ? rawState : null;
+  useSimClock();
 
-  const [showSocial, setShowSocial] = useState(false);
-  const [talkTarget, setTalkTarget] = useState<Housemate | null>(null);
-  const [showDiaryRoom, setShowDiaryRoom] = useState(false);
-  const [showStore, setShowStore] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const [isTouch] = useState(
-    () => typeof window !== 'undefined' && (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0)
-  );
-  const [muted, setMuted] = useState(sound.muted);
-
-  const toggleSound = () => {
-    sound.muted = !sound.muted;
-    setMuted(sound.muted);
-    if (!sound.muted) sound.playRewardChime();
-  };
-
-  // Automatically start 3D guided tour for new housemates during onboarding
+  // Keep the interaction registry in step with what stands on the lot.
   useEffect(() => {
-    if (state && state.phase === 'hoh' && !state.phaseDone && state.onboardingDone === false) {
-      useTour.getState().startTour();
-    }
-  }, [state?.phase, state?.phaseDone, state?.onboardingDone]);
+    if (household) registerLotInteractions(household.lot);
+  }, [household?.lot, household]);
 
-  // Sync party music with the Saturday night phase
+  // Dev-only inspection hook: lets the end-to-end harness assert on real state
+  // instead of scraping the DOM.
   useEffect(() => {
-    if (state?.phase === 'party' && !state.gameOver) {
-      sound.startPartyMusic();
-    } else {
-      sound.stopPartyMusic();
-    }
-    return () => sound.stopPartyMusic();
-  }, [state?.phase, state?.gameOver]);
+    if (!import.meta.env.DEV) return;
+    const w = window as unknown as Record<string, unknown>;
+    // Direct store handles for the harness to drive the game headlessly.
+    w.__lifeStore = useLifeStore;
+    w.__simStore = useSimStore;
+    w.__life = () => {
+      const life = useLifeStore.getState();
+      const sim = useSimStore.getState();
+      const home = life.household;
+      return {
+        hasHousehold: Boolean(home),
+        funds: home?.funds ?? 0,
+        selectedSimId: life.selectedSimId,
+        mode: life.mode,
+        wallMode: life.wallMode,
+        objectCount: home?.lot.length ?? 0,
+        wallCount: home?.plot.walls.length ?? 0,
+        clock: sim.clock.totalMinutes,
+        speed: sim.speed,
+        sims:
+          home?.sims.map((member) => {
+            const collider = getAvatarCollider(member.id);
+            const avatar = sim.avatars[member.id];
+            return {
+              id: member.id,
+              name: member.firstName,
+              stage: member.stage,
+              career: member.career?.id ?? null,
+              x: collider ? Number(collider.x.toFixed(2)) : null,
+              z: collider ? Number(collider.z.toFixed(2)) : null,
+              mood: avatar ? computeMood(avatar, sim.clock.totalMinutes).emotion : null,
+              active: avatar?.active?.defId ?? null,
+            };
+          }) ?? [],
+      };
+    };
+  }, [household]);
 
-  // Connect to the multiplayer server once a game is running
-  useEffect(() => {
-    if (state && !state.gameOver && !useNet.getState().houseId) {
-      useGame.getState().connectToHouse();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.player?.id]);
-
-  // After logging in with a saved avatar, start the game automatically.
-  useEffect(() => {
-    if (token && profile && !state) {
-      startGame(profile);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, profile, state?.player?.id]);
-
-  // Not logged in → auth gate.
-  if (!token) {
-    return <AuthScreen />;
-  }
-
-  // Logged in but no game yet (fresh signup) → character creation.
-  if (!state) {
-    return <CharacterCreator />;
-  }
-
-  const { phase, phaseDone } = state;
+  if (!household) return <CreateHousehold />;
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-ink">
-      {/* 3D world */}
-      <GameCanvas
-        onTalk={setTalkTarget}
-        onOpenDiaryRoom={() => setShowDiaryRoom(true)}
-      />
-
-      {/* Overlays */}
+      <GameCanvas />
+      <LifeHUD />
+      <BuildBuyPanel />
       <ToastContainer />
-      <Hud state={state} />
-
-      {/* Social Emote Bar (Collapsible) */}
-      <EmoteBar defaultOpen={false} />
-
-      {/* Top-Right Single Subtle Menu Toggle (☰) */}
-      <div className="absolute top-3 right-3 z-30">
-        <button
-          type="button"
-          onClick={() => setShowMenu((v) => !v)}
-          className="grid size-9 place-items-center rounded-2xl border border-white/20 bg-slate-950/85 hover:bg-slate-900 text-sm font-bold text-white shadow-xl backdrop-blur-md transition hover:scale-105 active:scale-95 cursor-pointer ring-1 ring-white/10"
-          aria-label="Toggle game menu"
-          title="Game Menu"
-        >
-          {showMenu ? '✕' : '☰'}
-        </button>
-
-        {/* Subtle Dropdown Menu */}
-        {showMenu && (
-          <div className="absolute top-11 right-0 w-48 rounded-2xl border border-white/15 bg-slate-950/95 p-1.5 shadow-2xl backdrop-blur-xl animate-pop-in flex flex-col gap-1 text-xs font-semibold text-white">
-            <button
-              type="button"
-              onClick={() => {
-                setShowSocial(true);
-                setShowMenu(false);
-              }}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-white/10 transition cursor-pointer"
-            >
-              <span>📱</span>
-              <span>Social Feed</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowStore(true);
-                setShowMenu(false);
-              }}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-white/10 transition cursor-pointer"
-            >
-              <span>🛒</span>
-              <span>Biggie's Store</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                useTour.getState().startTour();
-                setShowMenu(false);
-              }}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left hover:bg-white/10 transition cursor-pointer"
-            >
-              <span>📖</span>
-              <span>Guided Tour</span>
-            </button>
-            <button
-              type="button"
-              onClick={toggleSound}
-              className="flex items-center justify-between rounded-xl px-3 py-2 text-left hover:bg-white/10 transition cursor-pointer"
-            >
-              <div className="flex items-center gap-2.5">
-                <span>{muted ? '🔇' : '🔊'}</span>
-                <span>Sound Audio</span>
-              </div>
-              <span className="text-[10px] text-white/50">{muted ? 'Off' : 'On'}</span>
-            </button>
-            <div className="my-0.5 h-px bg-white/10" />
-            <button
-              type="button"
-              onClick={() => {
-                setShowMenu(false);
-                multiplayer.disconnect();
-                useAuth.getState().logout();
-                resetGame();
-              }}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-red-400 hover:bg-red-500/20 transition cursor-pointer"
-            >
-              <span>🚪</span>
-              <span>Log out</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {showSocial && (
-        <SocialPanel
-          state={state}
-          onClose={() => setShowSocial(false)}
-          onTalk={(h) => {
-            setTalkTarget(h);
-            setShowSocial(false);
-          }}
-        />
-      )}
-      {showStore && <StoreModal state={state} onClose={() => setShowStore(false)} />}
-
-      {/* Town Commerce & Virtual Currency System */}
-      <WalletHUD />
-      <CommerceModal />
-      <TransferModal />
-
-      <HouseChat />
-
-      {isTouch && <VirtualJoystick />}
-
-      <GameOverlay state={state} />
-
-      {/* Phase modals */}
-      {showDiaryRoom && (
-        <DiaryRoomModal
-          player={state.player}
-          onClose={() => setShowDiaryRoom(false)}
-        />
-      )}
-      {talkTarget && (
-        <DialogueModal
-          housemate={talkTarget}
-          player={state.player}
-          onClose={() => setTalkTarget(null)}
-        />
-      )}
-      {/* 3D Guided Tour in-game broadcast lower-third */}
-      <GuidedTourModal isStandalone={state.onboardingDone !== false} />
-      <HohChallengeOverlay />
-      {phase === 'nominations' && !phaseDone && <NominationsModal state={state} />}
-      {phase === 'eviction' && !phaseDone && !state.gameOver && <EvictionModal state={state} />}
-      {(phase === 'gameover' || Boolean(state.gameOver)) && <GameOverModal state={state} />}
     </div>
   );
 }

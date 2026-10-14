@@ -1,331 +1,117 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { Character } from './Character';
-import { input, attachInput, playerWorldPos } from './input';
-import { roomAt, WORLD_BOUNDS, PLAYER_SPAWN, moveWithSliding } from './rooms';
-import { updateAvatarCollider, removeAvatarCollider } from './collisionStore';
-import { getNearestShopPoi, shouldRemoveOrphanedVehicle } from './InfiniteWorld';
-import { useEconomyStore } from '../world/economyStore';
-import { useGame } from '../store';
-import { multiplayer } from '../engine/multiplayer';
-import { useTour, TOUR_STOPS } from './tourStore';
+import { attachInput, input } from './input';
+import { useLifeStore } from '../life/lifeStore';
 import { useCamera } from './cameraStore';
-import { useEmote } from './emoteStore';
-import { useVehicleStore, VEHICLE_CATALOG } from '../world/vehicleStore';
-import { VehicleVisualModel } from './StreetEnvironment';
+import { moveWithSliding } from './movement';
+import {
+  getAvatarCollider,
+  markAvatarDriven,
+  updateAvatarCollider,
+} from './collisionStore';
 
-const SPEED = 9;
-const CAM_DIST = 16;
-const CAM_HEIGHT = 14;
+// ---------------------------------------------------------------------------
+// You drive the selected Sim.
+//
+// WASD / arrow keys walk them, Q and E orbit the camera, the wheel zooms. Let
+// go of the keys and they carry on under their own free will.
+// ---------------------------------------------------------------------------
+
+const WALK_SPEED = 4.2;
+const FOLLOW_DISTANCE = 10;
+const FOLLOW_HEIGHT = 7.5;
 
 export function Player() {
-  const group = useRef<THREE.Group>(null);
-  const pos = useRef(new THREE.Vector3(PLAYER_SPAWN[0], 0, PLAYER_SPAWN[1]));
-  const yaw = useRef(0);
-  const camYaw = useRef(0);
-  const camLookAt = useRef(new THREE.Vector3(PLAYER_SPAWN[0], 1.2, PLAYER_SPAWN[1]));
-  const lastRoom = useRef(roomAt(PLAYER_SPAWN[0], PLAYER_SPAWN[1]));
   const camera = useThree((s) => s.camera);
+  const camYaw = useRef(0);
+  const distance = useRef(FOLLOW_DISTANCE);
+  const lookAt = useRef(new THREE.Vector3(0, 1.2, 0));
 
-  const [isWalking, setIsWalking] = useState(false);
-  const isWalkingRef = useRef(false);
-  const stuckFrames = useRef(0);
-  const targetStartTime = useRef(0);
-
-  const mountedVehicle = useVehicleStore((s) =>
-    s.mountedVehicleId ? s.vehicles[s.mountedVehicleId] ?? null : null
-  );
+  const plot = useLifeStore((s) => s.household?.plot);
+  const selectedSimId = useLifeStore((s) => s.selectedSimId);
 
   useEffect(() => {
     attachInput();
+  }, []);
 
-    const handleKey = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+  // Frame the selected Sim as soon as one exists.
+  useEffect(() => {
+    if (!selectedSimId) return;
+    const collider = getAvatarCollider(selectedSimId);
+    if (collider) {
+      lookAt.current.set(collider.x, 1.2, collider.z);
+    } else if (plot) {
+      const cx = plot.originX + (plot.width * plot.tileSize) / 2;
+      const cz = plot.originZ + plot.depth * plot.tileSize * 0.62;
+      lookAt.current.set(cx, 1.2, cz);
+    }
+  }, [selectedSimId, plot]);
 
-      // [F] — board the nearest vehicle, or exit the one you are driving.
-      if (e.code === 'KeyF') {
-        const currentMounted = useVehicleStore.getState().mountedVehicleId;
-        if (currentMounted) {
-          const exitPt = useVehicleStore.getState().dismountVehicle('player');
-          if (exitPt) {
-            pos.current.x = Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, exitPt[0]));
-            pos.current.z = Math.max(WORLD_BOUNDS.minZ, Math.min(WORLD_BOUNDS.maxZ, exitPt[1]));
-          }
-          // If the vehicle was a streamed chunk prop whose home chunk has since
-          // unloaded, drop it so the vehicle store cannot grow without bound.
-          if (shouldRemoveOrphanedVehicle(currentMounted)) {
-            useVehicleStore.getState().removeVehicle(currentMounted);
-          }
-        } else {
-          const nearby = useVehicleStore.getState().getNearbyVehicle([pos.current.x, pos.current.z, 0], 3.8);
-          if (nearby) {
-            useVehicleStore.getState().boardVehicle(nearby.id, 'player');
-          }
-        }
-        return;
-      }
-
-      // [E] — open the nearest shop entrance (matches the [E] badge hint).
-      if (e.code === 'KeyE') {
-        if (useVehicleStore.getState().mountedVehicleId) return;
-        const poi = getNearestShopPoi(pos.current.x, pos.current.z);
-        if (poi) useEconomyStore.getState().openShop(poi.shopId);
-      }
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      distance.current = Math.max(4, Math.min(30, distance.current + e.deltaY * 0.015));
     };
-
-    window.addEventListener('keydown', handleKey);
-    return () => {
-      window.removeEventListener('keydown', handleKey);
-      removeAvatarCollider('player');
-    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    return () => window.removeEventListener('wheel', onWheel);
   }, []);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
     const keys = input.keys;
 
-    // Camera orbit with Q/E
     if (keys.KeyQ) camYaw.current += 1.8 * dt;
     if (keys.KeyE) camYaw.current -= 1.8 * dt;
 
-    // Movement direction relative to camera yaw
-    const fwd = new THREE.Vector3(-Math.sin(camYaw.current), 0, -Math.cos(camYaw.current));
-    const right = new THREE.Vector3(Math.cos(camYaw.current), 0, -Math.sin(camYaw.current));
+    // --- Walk the selected Sim ---------------------------------------------
+    const forward = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
+    const strafe = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
 
-    const dz = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-    const dx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+    if (selectedSimId && (forward || strafe)) {
+      const collider = getAvatarCollider(selectedSimId);
+      if (collider) {
+        // Move relative to the camera's facing.
+        const sin = Math.sin(camYaw.current);
+        const cos = Math.cos(camYaw.current);
+        let dx = -sin * forward + cos * strafe;
+        let dz = -cos * forward - sin * strafe;
+        const len = Math.hypot(dx, dz) || 1;
+        dx /= len;
+        dz /= len;
 
-    // Blend in virtual joystick (mobile): y up = forward, x right = strafe
-    const joyDz = -input.moveVector.y;
-    const joyDx = input.moveVector.x;
-    const totalDz = dz + joyDz;
-    const totalDx = dx + joyDx;
-
-    // Manual input cancels click-to-move immediately
-    if (totalDz !== 0 || totalDx !== 0) {
-      if (input.target) {
-        console.log('[Player] Manual movement cancelled active target');
+        const step = moveWithSliding(
+          { x: collider.x, z: collider.z },
+          dx * WALK_SPEED * dt,
+          dz * WALK_SPEED * dt,
+          0.45,
+          selectedSimId,
+        );
+        const yaw = Math.atan2(dx, dz);
+        updateAvatarCollider(selectedSimId, step.x, step.z, 0.45, yaw);
+        markAvatarDriven(selectedSimId);
       }
-      input.target = null;
-      stuckFrames.current = 0;
-      targetStartTime.current = 0;
     }
 
-    let move = new THREE.Vector3();
-    if (input.target) {
-      if (targetStartTime.current === 0) {
-        targetStartTime.current = performance.now();
-      }
-      // Safety timeout: target cannot last more than 2.5 seconds
-      if (performance.now() - targetStartTime.current > 2500) {
-        console.log('[Player] Target movement timed out - stopping');
-        input.target = null;
-        targetStartTime.current = 0;
-        stuckFrames.current = 0;
-      } else {
-        const to = new THREE.Vector3(input.target.x, 0, input.target.z);
-        move = to.clone().sub(pos.current);
-        move.y = 0;
-        const len = move.length();
-        if (len < 1.4) {
-          console.log('[Player] Target reached within interaction radius');
-          input.target = null;
-          move.set(0, 0, 0);
-          stuckFrames.current = 0;
-          targetStartTime.current = 0;
-        } else {
-          move.normalize();
-        }
-      }
-    } else {
-      targetStartTime.current = 0;
-      move = fwd.multiplyScalar(totalDz).add(right.multiplyScalar(totalDx));
-      if (move.lengthSq() > 1) move.normalize();
-      const sprint = keys.ShiftLeft || keys.ShiftRight ? 1.6 : 1;
-      move.multiplyScalar(sprint);
-    }
+    // --- Camera follows the selected Sim -----------------------------------
+    const collider = selectedSimId ? getAvatarCollider(selectedSimId) : undefined;
+    const focus = collider ?? { x: lookAt.current.x, z: lookAt.current.z };
+    const cameraMode = useCamera.getState().mode;
+    const dist = cameraMode === 'human' ? 3.6 : distance.current;
+    const height = cameraMode === 'human' ? 2.4 : FOLLOW_HEIGHT;
 
-    // If tour is active, keep avatar idle while the camera flies through rooms
-    if (useTour.getState().isActive) {
-      move.set(0, 0, 0);
-    }
+    const desired = new THREE.Vector3(
+      focus.x + Math.sin(camYaw.current) * dist,
+      height,
+      focus.z + Math.cos(camYaw.current) * dist,
+    );
 
-    const moving = move.lengthSq() > 0.001;
-    if (moving !== isWalkingRef.current) {
-      isWalkingRef.current = moving;
-      setIsWalking(moving);
-    }
-
-    const prevX = pos.current.x;
-    const prevZ = pos.current.z;
-
-    const activeVehicleId = useVehicleStore.getState().mountedVehicleId;
-    const activeVehicle = activeVehicleId ? useVehicleStore.getState().vehicles[activeVehicleId] : null;
-    const vehicleDef = activeVehicle ? VEHICLE_CATALOG[activeVehicle.type] : null;
-    const activeSpeed = vehicleDef ? vehicleDef.maxSpeed : SPEED;
-
-    if (moving) {
-      const step = moveWithSliding(
-        pos.current,
-        move.x * activeSpeed * dt,
-        move.z * activeSpeed * dt,
-        activeVehicle ? 0.8 : 0.45,
-        'player'
-      );
-      const nextX = Math.max(WORLD_BOUNDS.minX, Math.min(WORLD_BOUNDS.maxX, step.x));
-      const nextZ = Math.max(WORLD_BOUNDS.minZ, Math.min(WORLD_BOUNDS.maxZ, step.z));
-
-      pos.current.x = nextX;
-      pos.current.z = nextZ;
-      yaw.current = Math.atan2(move.x, move.z);
-    }
-
-    if (activeVehicleId) {
-      useVehicleStore.getState().updateVehicleTransform(
-        activeVehicleId,
-        [pos.current.x, pos.current.z, 0],
-        yaw.current,
-        moving ? activeSpeed : 0
-      );
-    }
-
-    // Stuck detection: if target is active but walls block forward movement, cancel target
-    if (input.target) {
-      const actualMoved = Math.hypot(pos.current.x - prevX, pos.current.z - prevZ);
-      if (actualMoved < SPEED * dt * 0.3) {
-        stuckFrames.current += 1;
-        if (stuckFrames.current > 5) {
-          console.log('[Player] Stuck against wall detected - cancelling target');
-          input.target = null;
-          stuckFrames.current = 0;
-          targetStartTime.current = 0;
-          setIsWalking(false);
-          isWalkingRef.current = false;
-        }
-      } else {
-        stuckFrames.current = 0;
-      }
-    } else {
-      stuckFrames.current = 0;
-    }
-
-    // Sync real-time position for NPC proximity detection and avatar-to-avatar collision
-    playerWorldPos.x = pos.current.x;
-    playerWorldPos.z = pos.current.z;
-    updateAvatarCollider('player', pos.current.x, pos.current.z, 0.45);
-
-    if (group.current) {
-      group.current.position.copy(pos.current);
-      group.current.rotation.y = yaw.current;
-    }
-
-    const isTourActive = useTour.getState().isActive;
-    const tourIndex = useTour.getState().currentStopIndex;
-    const tourStop = TOUR_STOPS[tourIndex] ?? TOUR_STOPS[0];
-
-    // Camera follow (cinematic fly-through during guided tour or smooth follow during gameplay)
-    if (isTourActive) {
-      const targetCam = new THREE.Vector3(...tourStop.cameraPos);
-      const targetLook = new THREE.Vector3(...tourStop.lookAt);
-      camera.position.lerp(targetCam, Math.min(1, 4.5 * dt));
-      camLookAt.current.lerp(targetLook, Math.min(1, 4.5 * dt));
-      camera.lookAt(camLookAt.current);
-    } else {
-      const cameraMode = useCamera.getState().mode;
-      const isVehicleActive = Boolean(activeVehicleId);
-      const camDist = isVehicleActive ? 22 : (cameraMode === 'human' ? 4.2 : CAM_DIST);
-      const camHeight = isVehicleActive ? 16 : (cameraMode === 'human' ? 2.1 : CAM_HEIGHT);
-      const lookY = isVehicleActive ? 1.8 : (cameraMode === 'human' ? 1.55 : 1.2);
-
-      const normalCam = new THREE.Vector3(
-        pos.current.x + Math.sin(camYaw.current) * camDist,
-        camHeight,
-        pos.current.z + Math.cos(camYaw.current) * camDist,
-      );
-      const normalLook = new THREE.Vector3(pos.current.x, lookY, pos.current.z);
-      camera.position.lerp(normalCam, Math.min(1, (cameraMode === 'human' ? 8.5 : 6.5) * dt));
-      camLookAt.current.lerp(normalLook, Math.min(1, 8.5 * dt));
-      camera.lookAt(camLookAt.current);
-    }
-
-    // Room detection → keep the game store in sync
-    const room = roomAt(pos.current.x, pos.current.z);
-    if (room !== lastRoom.current) {
-      lastRoom.current = room;
-      useGame.getState().setRoom(room);
-    }
-
-    // Broadcast my position to the multiplayer server (throttled internally)
-    if (moving) multiplayer.sendMove(pos.current.x, pos.current.z, room);
+    camera.position.lerp(desired, Math.min(1, 5.5 * dt));
+    lookAt.current.lerp(
+      new THREE.Vector3(focus.x, cameraMode === 'human' ? 1.5 : 1.15, focus.z),
+      Math.min(1, 8 * dt),
+    );
+    camera.lookAt(lookAt.current);
   });
 
-  const player = useGame((s) => s.state?.player);
-  const activeEmote = useEmote((s) => s.activeEmote);
-  const [emoteAnim, setEmoteAnim] = useState<
-    'idle' | 'walk' | 'dance' | 'celebrate' | 'shock' | 'angry' | 'thumbsup' | null
-  >(null);
-
-  useEffect(() => {
-    if (!activeEmote) return;
-    let anim: 'celebrate' | 'dance' | 'angry' | 'shock' | null = null;
-    if (activeEmote.type === 'hype') anim = 'celebrate';
-    else if (activeEmote.type === 'dance') anim = 'dance';
-    else if (activeEmote.type === 'clapback') anim = 'angry';
-    else if (activeEmote.type === 'wave') anim = 'celebrate';
-
-    if (anim) {
-      setEmoteAnim(anim);
-      const timer = setTimeout(() => setEmoteAnim(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [activeEmote]);
-
-  if (!player) return null;
-
-  return (
-    <group ref={group}>
-      {mountedVehicle && (
-        <>
-          <VehicleVisualModel type={mountedVehicle.type} />
-          <Html
-            position={[0, mountedVehicle.type === 'danfo_bus' ? 3.0 : 2.4, 0]}
-            center
-            distanceFactor={14}
-          >
-            <div className="flex flex-col items-center pointer-events-none whitespace-nowrap select-none">
-              <div className="flex items-center gap-2 rounded-full bg-slate-950/90 px-3 py-1 text-xs font-bold text-white shadow-2xl ring-1 ring-amber-400/50 backdrop-blur-md">
-                <span>{VEHICLE_CATALOG[mountedVehicle.type].emoji}</span>
-                <span className="text-amber-400">{VEHICLE_CATALOG[mountedVehicle.type].name}</span>
-                <span className="text-slate-500">|</span>
-                <span>{isWalking ? `${Math.round(VEHICLE_CATALOG[mountedVehicle.type].maxSpeed * 3.6)} km/h` : 'Parked'}</span>
-                <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] text-white">
-                  [F] Exit
-                </span>
-              </div>
-            </div>
-          </Html>
-        </>
-      )}
-
-      <Character
-        position={[
-          0,
-          mountedVehicle ? (mountedVehicle.type === 'bike' ? 0.35 : 0.05) : 0,
-          mountedVehicle ? (mountedVehicle.type === 'bike' ? 0.3 : 0) : 0,
-        ]}
-        yaw={0}
-        accent={player.accentColor}
-        emoji={player.avatar}
-        name={player.nickname}
-        gender={player.gender}
-        isPlayer
-        isWalking={mountedVehicle ? false : isWalking}
-        animOverride={mountedVehicle ? 'idle' : emoteAnim}
-        skinTone={player.skinTone}
-        hairstyle={player.hairstyle}
-      />
-    </group>
-  );
+  return null;
 }

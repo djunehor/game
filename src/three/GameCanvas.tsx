@@ -3,29 +3,18 @@ import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Scene } from './Scene';
 import { Player } from './Player';
-import type { Housemate } from '../types';
 
-export function GameCanvas({
-  onTalk,
-  onOpenDiaryRoom = () => {},
-}: {
-  onTalk: (h: Housemate) => void;
-  onOpenDiaryRoom?: () => void;
-}) {
+export function GameCanvas() {
   return (
     <Canvas
       shadows
       dpr={[1, 2]}
-      gl={{
-        antialias: true,
-        toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.15,
-      }}
-      camera={{ position: [-16, 14, 24], fov: 50, near: 0.5, far: 800 }}
+      gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.15 }}
+      camera={{ position: [-11, 20, 26], fov: 50, near: 0.5, far: 800 }}
       className="absolute inset-0"
     >
       <Suspense fallback={null}>
-        <Scene onTalk={onTalk} onOpenDiaryRoom={onOpenDiaryRoom} />
+        <Scene />
         <Player />
       </Suspense>
     </Canvas>
