@@ -36,6 +36,8 @@ export function HouseholdMenu({ onOpenChange }: { onOpenChange?: (open: boolean)
   const selectSim = useLifeStore((s) => s.selectSim);
   const removeSim = useLifeStore((s) => s.removeSim);
   const reset = useLifeStore((s) => s.reset);
+  const inviteVisitor = useLifeStore((s) => s.inviteVisitor);
+  const sendVisitorHome = useLifeStore((s) => s.sendVisitorHome);
 
   // First run: show the controls unprompted, once.
   useEffect(() => {
@@ -126,19 +128,38 @@ export function HouseholdMenu({ onOpenChange }: { onOpenChange?: (open: boolean)
                   <span className={`truncate ${sim.id === selectedSimId ? 'text-gold' : ''}`}>
                     {sim.firstName} {sim.lastName}
                   </span>
+                  {sim.visiting && (
+                    <span className="rounded bg-sky-500/20 px-1 text-[8px] font-bold text-sky-200">
+                      visiting
+                    </span>
+                  )}
                 </button>
-                {household.sims.length > 1 && (
+                {sim.visiting ? (
                   <button
                     type="button"
-                    title={`Move ${sim.firstName} out`}
+                    title={`Send ${sim.firstName} home`}
                     onClick={() => {
                       sound.play('click');
-                      removeSim(sim.id);
+                      sendVisitorHome(sim.id);
                     }}
-                    className="rounded px-1 text-[10px] text-rose-300 hover:bg-rose-500/20 cursor-pointer"
+                    className="rounded px-1 text-[10px] text-sky-300 hover:bg-sky-500/20 cursor-pointer"
                   >
-                    Move out
+                    Send home
                   </button>
+                ) : (
+                  household.sims.length > 1 && (
+                    <button
+                      type="button"
+                      title={`Move ${sim.firstName} out`}
+                      onClick={() => {
+                        sound.play('click');
+                        removeSim(sim.id);
+                      }}
+                      className="rounded px-1 text-[10px] text-rose-300 hover:bg-rose-500/20 cursor-pointer"
+                    >
+                      Move out
+                    </button>
+                  )
                 )}
               </div>
             ))}
@@ -158,6 +179,23 @@ export function HouseholdMenu({ onOpenChange }: { onOpenChange?: (open: boolean)
           >
             <span>➕</span>
             <span>{household.sims.length >= 8 ? 'House is full' : 'Move someone in'}</span>
+          </button>
+          <button
+            type="button"
+            disabled={household.sims.filter((m) => m.visiting).length >= 3}
+            onClick={inviteVisitor}
+            className={`flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-[11px] font-semibold transition ${
+              household.sims.filter((m) => m.visiting).length >= 3
+                ? 'cursor-not-allowed text-white/30'
+                : 'cursor-pointer hover:bg-white/10'
+            }`}
+          >
+            <span>🚪</span>
+            <span>
+              {household.sims.filter((m) => m.visiting).length >= 3
+                ? 'You already have company'
+                : 'Invite a neighbour over'}
+            </span>
           </button>
           <button
             type="button"

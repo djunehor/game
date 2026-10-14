@@ -752,6 +752,38 @@ async function main() {
     });
     check(Boolean(talked), 'You can start a conversation from the panel');
 
+    // --- Neighbours can visit ---------------------------------------------
+    const visit = await page.evaluate(() => {
+      const store = window.__lifeStore;
+      const before = store.getState().household.sims.length;
+      store.getState().inviteVisitor();
+      const home = store.getState().household;
+      const visitor = home.sims.find((sim) => sim.visiting);
+      return {
+        before,
+        after: home.sims.length,
+        visiting: Boolean(visitor),
+        name: visitor?.firstName ?? null,
+        hasRelationships: visitor ? Object.keys(visitor.relationships).length > 0 : false,
+      };
+    });
+    check(visit.after === visit.before + 1, `A neighbour can be invited over (${visit.name})`);
+    check(visit.visiting, 'They are marked as a visitor, not a resident');
+    check(visit.hasRelationships, 'They are introduced to the household');
+
+    const sentHome = await page.evaluate(() => {
+      const store = window.__lifeStore;
+      const visitor = store.getState().household.sims.find((sim) => sim.visiting);
+      const id = visitor.id;
+      store.getState().sendVisitorHome(id);
+      return {
+        gone: !store.getState().household.sims.some((sim) => sim.id === id),
+        avatarGone: window.__simStore.getState().avatars[id] === undefined,
+      };
+    });
+    check(sentHome.gone, 'A visitor can be sent home');
+    check(sentHome.avatarGone, 'They leave the simulation when they go');
+
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
     await sleep(2500);

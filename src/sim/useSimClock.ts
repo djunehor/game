@@ -3,6 +3,7 @@ import {
   connectSocialOutcomes,
   evaluateAspirations,
   evaluateConsequences,
+  evaluateVisitors,
   syncLifeClock,
   syncLifeSims,
 } from '../life/bridge';
@@ -76,6 +77,7 @@ export function useSimClock(): void {
           aspirationAccumulator = 0;
           evaluateAspirations();
           evaluateConsequences();
+          evaluateVisitors();
         }
       }
     };

@@ -182,6 +182,7 @@ export function evaluateAspirations(): void {
   const sim = useSimStore.getState();
 
   for (const member of home.sims) {
+    if (member.visiting) continue;
     const avatar = sim.avatars[member.id];
     if (!avatar) continue;
 
@@ -339,6 +340,19 @@ export function evaluateConsequences(): void {
 
     sound.play('warning');
     useLifeStore.getState().notify(consequence.message(member.firstName), consequence.emoji, 'warning');
+  }
+}
+
+/** Send visitors home when their visit is up. */
+export function evaluateVisitors(): void {
+  const home = useLifeStore.getState().household;
+  if (!home) return;
+  const now = useSimStore.getState().clock.totalMinutes;
+  for (const member of home.sims) {
+    if (!member.visiting) continue;
+    if (member.visitUntilMinute !== undefined && now >= member.visitUntilMinute) {
+      useLifeStore.getState().sendVisitorHome(member.id);
+    }
   }
 }
 

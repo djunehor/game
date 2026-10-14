@@ -16,6 +16,7 @@ import {
   familyRelationshipKinds,
 } from './family';
 import { LIFE_TRAITS, LIFE_STAGES } from './content';
+import { ACCENT_COLORS, AVATAR_EMOJIS, SKIN_TONES } from '../data/profileOptions';
 import { addSkillXp } from '../sim/skills';
 import { sound } from '../engine/sound';
 import type { SkillId } from '../sim/types';
@@ -125,6 +126,10 @@ interface LifeState {
   tryForBaby: (aId: string, bId: string) => void;
   /** Adopt a child into the household (costs money). */
   adoptChild: (parentId: string) => void;
+  /** Invite a neighbour over for a few hours. */
+  inviteVisitor: () => void;
+  /** Send a visitor home early. */
+  sendVisitorHome: (simId: string) => void;
   removeSim: (simId: string) => void;
 
   advanceLifeDay: (dayOffset: number, weekday: number) => void;
@@ -688,6 +693,75 @@ export const useLifeStore = create<LifeState>((set, get) => ({
     get().notify(`${a.firstName} is expecting!`, '🤰', 'birthday');
   },
 
+  inviteVisitor: () => {
+    const { household, lastDayOffset } = get();
+    if (!household) return;
+    if (household.sims.filter((s) => s.visiting).length >= 3) {
+      get().notify('You already have company.', '🚫', 'warning');
+      return;
+    }
+
+    const seed = household.sims.length + household.name.length + household.sims[0].traits.length;
+    const names = ['Sade', 'Kunle', 'Amaka', 'Dele', 'Ronke', 'Uche', 'Tayo', 'Nkechi'];
+    const surnames = ['Adebayo', 'Chukwu', 'Lawal', 'Ibrahim', 'Obi', 'Danjuma'];
+    const traitPool = LIFE_TRAITS.map((t) => t.id);
+
+    const visitor: Sim = {
+      id: uid('sim'),
+      firstName: names[seed % names.length],
+      lastName: surnames[seed % surnames.length],
+      gender: seed % 2 === 0 ? 'M' : 'F',
+      stage: 'adult',
+      daysInStage: 0,
+      traits: [
+        traitPool[seed % traitPool.length],
+        traitPool[(seed + 5) % traitPool.length],
+      ].filter((t, i, arr) => arr.indexOf(t) === i),
+      aspiration: 'popularity',
+      avatar: AVATAR_EMOJIS[seed % AVATAR_EMOJIS.length],
+      accentColor: ACCENT_COLORS[seed % ACCENT_COLORS.length],
+      skinTone: SKIN_TONES[seed % SKIN_TONES.length],
+      career: null,
+      atWork: false,
+      relationships: {},
+      generation: household.generation,
+      playable: true,
+      counters: {},
+      visiting: true,
+      visitUntilMinute: lastDayOffset * 24 * 60 + 8 * 60,
+    };
+
+    // Everyone says hello.
+    for (const member of household.sims) {
+      visitor.relationships[member.id] = { friendship: 12, romance: 0, kind: 'acquaintance' };
+      member.relationships[visitor.id] = { friendship: 12, romance: 0, kind: 'acquaintance' };
+    }
+
+    sound.play('click');
+    set({ household: { ...household, sims: [...household.sims, visitor] } });
+    get().notify(`${visitor.firstName} ${visitor.lastName} popped over to say hello.`, '🚪', 'info');
+  },
+
+  sendVisitorHome: (simId) => {
+    const { household } = get();
+    const visitor = household?.sims.find((s) => s.id === simId && s.visiting);
+    if (!household || !visitor) return;
+    set({
+      household: {
+        ...household,
+        sims: household.sims
+          .filter((s) => s.id !== simId)
+          .map((s) => {
+            const rel = { ...s.relationships };
+            delete rel[simId];
+            return { ...s, relationships: rel };
+          }),
+      },
+    });
+    useSimStore.getState().removeAvatar(simId);
+    get().notify(`${visitor.firstName} headed home.`, '👋', 'info');
+  },
+
   adoptChild: (parentId) => {
     const { household } = get();
     if (!household) return;
@@ -719,6 +793,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
       },
       selectedSimId: get().selectedSimId === simId ? null : get().selectedSimId,
     });
+    useSimStore.getState().removeAvatar(simId);
   },
 
   advanceLifeDay: (dayOffset, weekday) => {
@@ -732,6 +807,9 @@ export const useLifeStore = create<LifeState>((set, get) => ({
     const newWorkedToday: Record<string, boolean> = {};
 
     const sims = household.sims.map((sim) => {
+      // Visitors are just passing through: they do not age or hold down a job.
+      if (sim.visiting) return sim;
+
       // 1. Age up.
       const aged = advanceAge(sim, 1);
       if (aged.agedUp && aged.newStage) {
@@ -765,6 +843,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
     const SCHOOL_SKILLS: SkillId[] = ['logic', 'creativity', 'charisma', 'cooking'];
     for (let i = 0; i < sims.length; i++) {
       const member = sims[i];
+      if (member.visiting) continue;
       if (member.stage !== 'child' && member.stage !== 'teen') continue;
       const skill = SCHOOL_SKILLS[(i + dayOffset) % SCHOOL_SKILLS.length];
       const avatar = useSimStore.getState().avatars[member.id];
@@ -849,7 +928,8 @@ export const useLifeStore = create<LifeState>((set, get) => ({
 
     // 5. Weekly bills on Mondays.
     if (weekday === 1) {
-      const bill = Math.round(household.lot.length * 12 + sims.length * BILLS_PER_SIM);
+      const residents = sims.filter((s) => !s.visiting).length;
+      const bill = Math.round(household.lot.length * 12 + residents * BILLS_PER_SIM);
       funds -= bill;
       notifications.push({
         id: uid('note'),

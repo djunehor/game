@@ -159,7 +159,14 @@ export function RelationshipsPanel() {
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{member.avatar}</span>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-[11px] font-bold">{member.firstName}</div>
+                          <div className="truncate text-[11px] font-bold">
+                            {member.firstName}
+                            {member.visiting && (
+                              <span className="ml-1 rounded bg-sky-500/20 px-1 text-[8px] font-bold text-sky-200">
+                                visiting
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[9px] text-white/50">
                             {friendshipLabel(forward.friendship)} ·{' '}
                             {KIND_LABEL[relationKindFor(forward)] ?? forward.kind}

@@ -129,6 +129,10 @@ export interface Sim {
   counters?: Record<string, number>;
   /** Their parents, for the family tree. */
   parentIds?: string[];
+  /** True while this Sim is only visiting, not living here. */
+  visiting?: boolean;
+  /** Sim minute their visit ends. */
+  visitUntilMinute?: number;
   /** Set while expecting: the day offset the baby arrives. */
   pregnantUntilDayOffset?: number;
   /** Who they are expecting with. */

@@ -63,6 +63,10 @@ argue, insult, apologise. Relationships move for **both** people, and the
 actions you are offered depend on how close they already are — you cannot hug a
 stranger, and nothing romantic is ever offered toward a child.
 
+Neighbours drop by if you invite them (☰ → Invite a neighbour over). They
+socialise, get to know the household and go home after a few hours. They do not
+pay bills, hold a job or age while they are visiting.
+
 Close couples can **try for a baby**, and a single Sim can **adopt**. Children
 inherit their parents' traits (with room for something of their own) and a
 blended version of their looks, then age through baby, child, teen, young adult,
