@@ -20,12 +20,25 @@ export function isTypingTarget(target: EventTarget | null): boolean {
 
 let attached = false;
 
+/** Actions bound to a single keypress rather than a held key. */
+type KeyAction = (code: string) => boolean;
+let keyAction: KeyAction | null = null;
+
+export function setKeyAction(action: KeyAction | null): void {
+  keyAction = action;
+}
+
 export function attachInput(): void {
   if (attached || typeof window === 'undefined') return;
   attached = true;
 
   window.addEventListener('keydown', (e) => {
     if (isTypingTarget(e.target)) return;
+    // One-shot shortcuts (pause, speed) take priority over held movement keys.
+    if (keyAction?.(e.code)) {
+      e.preventDefault();
+      return;
+    }
     if (TRACKED.has(e.code)) {
       input.keys[e.code] = true;
       if (e.code.startsWith('Arrow')) e.preventDefault();

@@ -3,6 +3,7 @@ import { CreateHousehold } from './components/CreateHousehold';
 import { LifeHUD } from './components/LifeHUD';
 import { BuildBuyPanel } from './components/BuildBuyPanel';
 import { ToastContainer } from './components/ToastContainer';
+import { HouseholdMenu } from './components/HouseholdMenu';
 import { GameCanvas } from './three/GameCanvas';
 import { registerLotInteractions, useLifeStore } from './life/lifeStore';
 import { useSimClock } from './sim/useSimClock';
@@ -84,6 +85,7 @@ export function App() {
     <div className="fixed inset-0 overflow-hidden bg-ink">
       <GameCanvas />
       <LifeHUD />
+      <HouseholdMenu />
       <BuildBuyPanel />
       <ToastContainer />
     </div>

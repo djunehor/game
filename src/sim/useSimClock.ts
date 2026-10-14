@@ -8,6 +8,7 @@ import {
 } from '../life/bridge';
 import { useLifeStore } from '../life/lifeStore';
 import { useSimStore } from './simStore';
+import { setKeyAction } from '../three/input';
 
 /** How often the simulation advances, in milliseconds of real time. */
 const TICK_MS = 250;
@@ -22,6 +23,22 @@ export function useSimClock(): void {
   const castKey = useLifeStore((s) =>
     s.household ? s.household.sims.map((sim) => `${sim.id}:${sim.traits.join('+')}`).join(',') : '',
   );
+
+  // Shortcuts: space pauses, 1/2/3 set the speed.
+  useEffect(() => {
+    setKeyAction((code) => {
+      const sim = useSimStore.getState();
+      if (code === 'Space') {
+        sim.togglePause();
+        return true;
+      }
+      if (code === 'Digit1') { sim.setSpeed(1); return true; }
+      if (code === 'Digit2') { sim.setSpeed(2); return true; }
+      if (code === 'Digit3') { sim.setSpeed(3); return true; }
+      return false;
+    });
+    return () => setKeyAction(null);
+  }, []);
 
   // Let resolved Sim-to-Sim interactions reach the household.
   useEffect(() => {

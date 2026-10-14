@@ -177,18 +177,29 @@ export function LifeHUD() {
           const energy = avatar?.motives.energy ?? 100;
           const isSelected = sim.id === selected?.id;
           const careerLabel = sim.career ? levelTitle(sim.career) : null;
+          const needsAttention = avatar
+            ? Object.values(avatar.motives).some((v) => v < 20)
+            : false;
           return (
             <button
               key={sim.id}
               type="button"
               onClick={() => selectSim(sim.id)}
               title={`${sim.firstName} ${sim.lastName} · ${LIFE_STAGES[sim.stage].label}`}
-              className={`w-24 shrink-0 rounded-2xl border p-1.5 text-left shadow-xl backdrop-blur-md transition cursor-pointer ${
+              className={`relative w-24 shrink-0 rounded-2xl border p-1.5 text-left shadow-xl backdrop-blur-md transition cursor-pointer ${
                 isSelected
                   ? 'border-gold/70 bg-slate-950/95 ring-1 ring-gold/50'
                   : 'border-white/15 bg-slate-950/80 hover:bg-slate-900/90'
               }`}
             >
+              {needsAttention && (
+                <span
+                  title="This Sim needs something urgently"
+                  className="absolute -top-1 -right-1 grid size-4 place-items-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-lg ring-2 ring-slate-950"
+                >
+                  !
+                </span>
+              )}
               <div className="flex items-center gap-1.5">
                 <span className="text-lg">{sim.avatar}</span>
                 <div className="min-w-0 flex-1">

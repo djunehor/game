@@ -654,6 +654,48 @@ async function main() {
       check(true, 'Family checks skipped (needs two adults)');
     }
 
+    // --- Household management + shortcuts ---------------------------------
+    const manage = await page.evaluate(() => {
+      const store = window.__lifeStore;
+      const before = store.getState().household.sims.length;
+      const name = store.getState().household.name;
+      store.setState((s) => ({ household: { ...s.household, name: 'Renamed House' } }));
+      const leavingId = store.getState().household.sims[1].id;
+      store.getState().removeSim(leavingId);
+      return {
+        before,
+        after: store.getState().household.sims.length,
+        nameChanged: store.getState().household.name !== name,
+        cleaned: store
+          .getState()
+          .household.sims.every((m) => m.relationships[leavingId] === undefined),
+      };
+    });
+    check(manage.nameChanged, 'The household can be renamed');
+    check(manage.after === manage.before - 1, `A Sim can move out (${manage.before} → ${manage.after})`);
+    check(manage.cleaned, 'Their relationships are cleaned up');
+
+    // Keyboard shortcuts: space pauses, 1 resumes.
+    await page.evaluate(() => window.__simStore.getState().setSpeed(1));
+    await page.keyboard.press('Space');
+    await sleep(300);
+    const paused = (await state()).speed;
+    await page.keyboard.press('Digit2');
+    await sleep(300);
+    const fast = (await state()).speed;
+    check(paused === 0, `Space pauses the game (speed ${paused})`);
+    check(fast === 2, `Number keys set the speed (speed ${fast})`);
+
+    // The help card explains the controls on a first visit.
+    await page.evaluate(() => localStorage.removeItem('life-sim-seen-help-v1'));
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
+    await page.waitForFunction(() => window.__life?.().hasHousehold === true, { timeout: 60000 });
+    await sleep(2000);
+    check(
+      await page.evaluate(() => /How to live here/i.test(document.body.innerText)),
+      'First-time players are shown the controls',
+    );
+
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
     await sleep(2500);
