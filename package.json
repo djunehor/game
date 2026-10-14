@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "lint": "tsc --noEmit",
     "preview": "vite preview",
-    "test": "tsx tests/test-lot-foundation-logic.ts && tsx tests/test-life-build-logic.ts && tsx tests/test-life-household-logic.ts && tsx tests/test-consequences-logic.ts && tsx tests/test-aspirations-logic.ts && tsx tests/test-social-life-logic.ts && tsx tests/test-sim-needs-logic.ts && tsx tests/test-sim-autonomy-logic.ts && tsx tests/test-sim-engine-logic.ts && tsx tests/test-sim-panel-ui.tsx && tsx tests/test-root-motion.ts",
+    "test": "tsx tests/test-lot-foundation-logic.ts && tsx tests/test-life-build-logic.ts && tsx tests/test-life-household-logic.ts && tsx tests/test-family-logic.ts && tsx tests/test-consequences-logic.ts && tsx tests/test-aspirations-logic.ts && tsx tests/test-social-life-logic.ts && tsx tests/test-sim-needs-logic.ts && tsx tests/test-sim-autonomy-logic.ts && tsx tests/test-sim-engine-logic.ts && tsx tests/test-sim-panel-ui.tsx && tsx tests/test-root-motion.ts",
     "test:e2e": "node tests/e2e/playable.mjs"
   },
   "dependencies": {

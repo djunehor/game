@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import type { Gender, Hairstyle } from '../types';
 import { MOTIVE_IDS } from '../sim/types';
 import { useSimStore } from '../sim/simStore';
 import { registerObjectInteractions, registerSocialInteractions } from '../sim/interactions';
@@ -7,6 +6,16 @@ import { SOCIAL_INTERACTIONS } from './social';
 import { advanceAge } from './aging';
 import { CATALOG_BY_ID } from './catalog';
 import { canPlace, objectPrice, sellValue, snap, type PlacementCheck } from './buildMode';
+import {
+  ADOPTION_COST,
+  PREGNANCY_DAYS,
+  canAdopt,
+  canTryForBaby,
+  createBaby,
+  dueBirths,
+  familyRelationshipKinds,
+} from './family';
+import { LIFE_TRAITS } from './content';
 import { CAREERS, LIFE_STAGES } from './content';
 import { completeShift, isWorkDay, missShift, shiftFor } from './careers';
 import { interactionsForLot, regionLabelAt } from './objects';
@@ -20,14 +29,9 @@ import {
   validWallKeys,
 } from '../lot/grid';
 import { WALL_COST, WALL_REFUND, type LotLayout, type LotRegion, type TileKind } from '../lot/types';
-import type {
-  AspirationId,
-  CareerId,
-  Household,
-  LifeStage,
-  PlacedObject,
-  Sim,
-} from './types';
+import type { CareerId, Household, NewSimConfig, PlacedObject, Sim } from './types';
+
+export type { NewSimConfig };
 
 // ---------------------------------------------------------------------------
 // The life sim's own state: a household, a lot, money, and the day counter.
@@ -50,20 +54,6 @@ export interface LifeNotification {
   emoji: string;
   kind: 'info' | 'money' | 'birthday' | 'career' | 'warning';
   at: number;
-}
-
-export interface NewSimConfig {
-  firstName: string;
-  lastName: string;
-  gender: Gender;
-  stage: LifeStage;
-  traits: string[];
-  aspiration: AspirationId;
-  avatar: string;
-  accentColor: string;
-  skinTone?: string;
-  hairstyle?: Hairstyle;
-  career?: CareerId | null;
 }
 
 export interface HouseholdConfig {
@@ -127,6 +117,10 @@ interface LifeState {
 
   adjustRelationship: (aId: string, bId: string, friendship?: number, romance?: number) => void;
   addSim: (config: NewSimConfig) => void;
+  /** Start a pregnancy between two willing Sims. */
+  tryForBaby: (aId: string, bId: string) => void;
+  /** Adopt a child into the household (costs money). */
+  adoptChild: (parentId: string) => void;
   removeSim: (simId: string) => void;
 
   advanceLifeDay: (dayOffset: number, weekday: number) => void;
@@ -197,6 +191,63 @@ function starterLot(plot: LotLayout): PlacedObject[] {
     placed.push({ uid: uid('obj'), catalogId, x: sx, z: sz, rotation });
   }
   return placed;
+}
+
+/** Add a newborn or adopted child to the household and wire up the family links. */
+function addChildToHousehold(
+  get: () => LifeState,
+  set: (partial: Partial<LifeState>) => void,
+  parents: Sim[],
+  funds: number,
+): void {
+  const household = get().household;
+  if (!household) return;
+
+  const baby = createBaby({
+    parents,
+    availableTraits: LIFE_TRAITS.map((t) => t.id),
+    roll: (parents[0].id.length % 7) / 11,
+  });
+
+  const child: Sim = {
+    id: uid('sim'),
+    firstName: baby.firstName,
+    lastName: baby.lastName,
+    gender: baby.gender,
+    stage: baby.stage,
+    daysInStage: 0,
+    traits: baby.traits,
+    aspiration: baby.aspiration,
+    avatar: baby.appearance.avatar,
+    accentColor: baby.appearance.accentColor,
+    skinTone: baby.appearance.skinTone,
+    hairstyle: baby.appearance.hairstyle,
+    career: null,
+    atWork: false,
+    relationships: {},
+    generation: (parents[0]?.generation ?? 0) + 1,
+    playable: true,
+    parentIds: baby.parentIds,
+    counters: {},
+  };
+
+  const links = familyRelationshipKinds(parents, child, household.sims);
+  for (const member of household.sims) {
+    const fromChild = links.find((l) => l.simId === child.id && l.otherId === member.id);
+    const fromMember = links.find((l) => l.simId === member.id && l.otherId === child.id);
+    child.relationships[member.id] = {
+      friendship: fromChild?.kind === 'sibling' ? 40 : 25,
+      romance: 0,
+      kind: fromChild?.kind ?? 'acquaintance',
+    };
+    member.relationships[child.id] = {
+      friendship: fromMember?.kind === 'parent' ? 70 : 20,
+      romance: 0,
+      kind: fromMember?.kind ?? 'acquaintance',
+    };
+  }
+
+  set({ household: { ...household, funds, sims: [...household.sims, child] } });
 }
 
 export const useLifeStore = create<LifeState>((set, get) => ({
@@ -556,6 +607,51 @@ export const useLifeStore = create<LifeState>((set, get) => ({
     set({ household: { ...household, sims: [...household.sims, sim] } });
   },
 
+  tryForBaby: (aId, bId) => {
+    const { household, lastDayOffset } = get();
+    if (!household) return;
+    const a = household.sims.find((s) => s.id === aId);
+    const b = household.sims.find((s) => s.id === bId);
+    if (!a || !b) return;
+
+    const check = canTryForBaby(a, b, household.sims.length);
+    if (!check.ok) {
+      get().notify(check.reason ?? 'Not possible', '🚫', 'warning');
+      return;
+    }
+
+    set({
+      household: {
+        ...household,
+        sims: household.sims.map((s) =>
+          s.id === a.id
+            ? {
+                ...s,
+                pregnantUntilDayOffset: lastDayOffset + PREGNANCY_DAYS,
+                pregnancyPartnerId: b.id,
+              }
+            : s,
+        ),
+      },
+    });
+    get().notify(`${a.firstName} is expecting!`, '🤰', 'birthday');
+  },
+
+  adoptChild: (parentId) => {
+    const { household } = get();
+    if (!household) return;
+    const parent = household.sims.find((s) => s.id === parentId);
+    if (!parent) return;
+
+    const check = canAdopt(parent, household.sims.length, household.funds);
+    if (!check.ok) {
+      get().notify(check.reason ?? 'Not possible', '🚫', 'warning');
+      return;
+    }
+
+    addChildToHousehold(get, set, [parent], household.funds - ADOPTION_COST);
+  },
+
   removeSim: (simId) => {
     const { household } = get();
     if (!household) return;
@@ -614,7 +710,78 @@ export const useLifeStore = create<LifeState>((set, get) => ({
       return { ...aged.sim, career };
     });
 
-    // 3. Weekly bills on Mondays.
+    // 3. Births.
+    const births = dueBirths(sims, dayOffset);
+    for (const expecting of births) {
+      const partner = expecting.pregnancyPartnerId
+        ? sims.find((m) => m.id === expecting.pregnancyPartnerId)
+        : undefined;
+      const parents = partner ? [expecting, partner] : [expecting];
+      const traits = LIFE_TRAITS.map((t) => t.id);
+      const baby = createBaby({
+        parents,
+        availableTraits: traits,
+        roll: (expecting.id.length + dayOffset * 3) / 17 % 1,
+      });
+      const newborn: Sim = {
+        id: uid('sim'),
+        firstName: baby.firstName,
+        lastName: baby.lastName,
+        gender: baby.gender,
+        stage: baby.stage,
+        daysInStage: 0,
+        traits: baby.traits,
+        aspiration: baby.aspiration,
+        avatar: baby.appearance.avatar,
+        accentColor: baby.appearance.accentColor,
+        skinTone: baby.appearance.skinTone,
+        hairstyle: baby.appearance.hairstyle,
+        career: null,
+        atWork: false,
+        relationships: {},
+        generation: expecting.generation + 1,
+        playable: true,
+        parentIds: baby.parentIds,
+        counters: {},
+      };
+
+      // Everyone meets the baby; family get their own labels. The link has to be
+      // read from each side's point of view, or the directions come out reversed.
+      const links = familyRelationshipKinds(parents, newborn, sims);
+      for (const member of sims) {
+        const fromBaby = links.find((l) => l.simId === newborn.id && l.otherId === member.id);
+        const fromMember = links.find((l) => l.simId === member.id && l.otherId === newborn.id);
+        newborn.relationships[member.id] = {
+          friendship: fromBaby?.kind === 'sibling' ? 40 : 25,
+          romance: 0,
+          kind: fromBaby?.kind ?? 'acquaintance',
+        };
+        member.relationships[newborn.id] = {
+          friendship: fromMember?.kind === 'parent' ? 70 : 20,
+          romance: 0,
+          kind: fromMember?.kind ?? 'acquaintance',
+        };
+      }
+
+      sims.push(newborn);
+      // The parents are no longer expecting.
+      const parentIds = new Set(parents.map((p) => p.id));
+      for (let i = 0; i < sims.length; i++) {
+        if (parentIds.has(sims[i].id)) {
+          sims[i] = { ...sims[i], pregnantUntilDayOffset: undefined, pregnancyPartnerId: undefined };
+        }
+      }
+
+      notifications.push({
+        id: uid('note'),
+        text: `${expecting.firstName} gave birth to ${newborn.firstName}! 🎉`,
+        emoji: '👶',
+        kind: 'birthday',
+        at: dayOffset,
+      });
+    }
+
+    // 4. Weekly bills on Mondays.
     if (weekday === 1) {
       const bill = Math.round(household.lot.length * 12 + sims.length * BILLS_PER_SIM);
       funds -= bill;

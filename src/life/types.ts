@@ -129,6 +129,10 @@ export interface Sim {
   counters?: Record<string, number>;
   /** Their parents, for the family tree. */
   parentIds?: string[];
+  /** Set while expecting: the day offset the baby arrives. */
+  pregnantUntilDayOffset?: number;
+  /** Who they are expecting with. */
+  pregnancyPartnerId?: string;
 }
 
 // --- Buy mode ---------------------------------------------------------------
@@ -214,4 +218,40 @@ export interface Household {
   /** Furniture placed on that land. */
   lot: PlacedObject[];
   generation: number;
+}
+
+// --- Creating Sims ----------------------------------------------------------
+
+/** Looks a child inherits, gathered in one place. */
+export interface Appearance {
+  avatar: string;
+  accentColor: string;
+  hairstyle?: Hairstyle;
+  skinTone?: string;
+}
+
+/** What the family layer produces for a newborn. */
+export interface YoungSimConfig {
+  firstName: string;
+  lastName: string;
+  gender: Gender;
+  stage: LifeStage;
+  traits: string[];
+  aspiration: AspirationId;
+  appearance: Appearance;
+  parentIds: string[];
+}
+
+export interface NewSimConfig {
+  firstName: string;
+  lastName: string;
+  gender: Gender;
+  stage: LifeStage;
+  traits: string[];
+  aspiration: AspirationId;
+  avatar: string;
+  accentColor: string;
+  skinTone?: string;
+  hairstyle?: Hairstyle;
+  career?: CareerId | null;
 }

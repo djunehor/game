@@ -558,6 +558,77 @@ async function main() {
     }, crisis);
     check(stillAlive, 'The collapsed Sim is revived with a moodlet, not left at zero');
 
+    // --- Family: a baby can be born into the household ---------------------
+    const family = await page.evaluate(() => {
+      const store = window.__lifeStore;
+      const home = store.getState().household;
+      const adults = home.sims.filter((s) => s.stage === 'adult' || s.stage === 'youngAdult');
+      if (adults.length < 2) return null;
+      // Make them a couple so conception is allowed.
+      store.setState((s) => ({
+        household: {
+          ...s.household,
+          sims: s.household.sims.map((m) => ({
+            ...m,
+            relationships: Object.fromEntries(
+              Object.entries(m.relationships).map(([id, rel]) => [
+                id,
+                { ...rel, friendship: 85, romance: 85, kind: 'partner' },
+              ]),
+            ),
+          })),
+        },
+      }));
+      return { a: adults[0].id, b: adults[1].id, count: home.sims.length };
+    });
+
+    if (family) {
+      await page.evaluate(
+        ({ a, b }) => window.__lifeStore.getState().tryForBaby(a, b),
+        { a: family.a, b: family.b },
+      );
+      await sleep(500);
+      const expecting = await page.evaluate(() =>
+        window.__lifeStore.getState().household.sims.some((s) => s.pregnantUntilDayOffset !== undefined),
+      );
+      check(expecting, 'A couple can conceive once they are close');
+
+      // Step the days one at a time and stop the moment the baby arrives, so we
+      // are looking at a newborn rather than an infant who has already aged up.
+      const birth = await page.evaluate((count) => {
+        const store = window.__lifeStore;
+        for (let day = 1; day <= 8; day++) {
+          store.getState().advanceLifeDay(day, 2);
+          if (store.getState().household.sims.length > count) {
+            const baby = store.getState().household.sims.at(-1);
+            const parents = store
+              .getState()
+              .household.sims.filter((m) =>
+                Object.values(m.relationships).some((r) => r.kind === 'parent'),
+              )
+              .map((m) => m.id);
+            return {
+              stage: baby.stage,
+              babySeesParent: Object.values(baby.relationships).some((r) => r.kind === 'child'),
+              parentIds: baby.parentIds ?? [],
+              parentCount: parents.length,
+            };
+          }
+        }
+        return null;
+      }, family.count);
+
+      check(birth !== null, `A baby is born (${family.count} → ${family.count + 1} in the household)`);
+      check(birth?.stage === 'baby', `The newborn starts as a baby (${birth?.stage})`);
+      check(
+        birth?.babySeesParent === true && (birth?.parentIds.length ?? 0) === 2,
+        'The newborn knows both parents from their own side',
+      );
+      check((birth?.parentCount ?? 0) >= 2, 'The parents are linked back to the child');
+    } else {
+      check(true, 'Family checks skipped (needs two adults)');
+    }
+
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
     await sleep(2500);

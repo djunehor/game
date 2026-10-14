@@ -7,11 +7,12 @@ import { LIFE_ROOM_LABELS } from '../life/catalog';
 import { useLifeStore } from '../life/lifeStore';
 import { lotValue } from '../life/objects';
 import { allSocialInteractions } from '../sim/interactions';
-import { CAREERS, LIFE_STAGES } from '../life/content';
+import { CAREERS } from '../life/content';
 import { levelTitle, shiftFor } from '../life/careers';
 import { canUseInteraction, friendshipLabel, relationKindFor, stageProgress } from '../life/aging';
 import { aspirationStatus, type AspirationContext } from '../life/aspirations';
-import { ASPIRATIONS } from '../life/content';
+import { ASPIRATIONS, LIFE_STAGES } from '../life/content';
+import { ADOPTION_COST, canAdopt, canTryForBaby } from '../life/family';
 import { getSkillLevel } from '../sim/skills';
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,8 @@ export function LifeHUD() {
     return aspirationStatus(selected.aspiration, ctx);
   }, [household, selected, avatars]);
   const setSocialTarget = useLifeStore((s) => s.setSocialTarget);
+  const tryForBaby = useLifeStore((s) => s.tryForBaby);
+  const adoptChild = useLifeStore((s) => s.adoptChild);
 
   const weekday = parts.weekday;
   const shift = selected?.career ? shiftFor(selected.career, weekday) : null;
@@ -191,7 +194,9 @@ export function LifeHUD() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[11px] font-bold text-white">{sim.firstName}</div>
                   <div className="truncate text-[9px] text-white/50">
-                    {careerLabel ?? LIFE_STAGES[sim.stage].label}
+                    {sim.pregnantUntilDayOffset !== undefined
+                      ? '🤰 expecting'
+                      : (careerLabel ?? LIFE_STAGES[sim.stage].label)}
                   </div>
                 </div>
               </div>
@@ -307,6 +312,39 @@ export function LifeHUD() {
                 </div>
               </div>
             </div>
+            {/* Family: only offered when the pair actually qualify */}
+            {(() => {
+              const babyCheck = canTryForBaby(actor, partner, household.sims.length);
+              const adoptCheck = canAdopt(actor, household.sims.length, household.funds);
+              if (!babyCheck.ok && !adoptCheck.ok) return null;
+              return (
+                <div className="mt-2 flex flex-col gap-1 border-t border-white/10 pt-2">
+                  <span className="text-[9px] font-bold uppercase tracking-wide text-white/40">Family</span>
+                  {babyCheck.ok && (
+                    <button
+                      type="button"
+                      onClick={() => tryForBaby(actor.id, partner.id)}
+                      className="flex items-center gap-1.5 rounded-xl bg-pink-500/20 px-2 py-1.5 text-left text-[11px] font-semibold text-pink-100 transition hover:bg-pink-500/30 cursor-pointer"
+                    >
+                      <span>🤰</span>
+                      <span className="flex-1">Try for a Baby</span>
+                    </button>
+                  )}
+                  {adoptCheck.ok && (
+                    <button
+                      type="button"
+                      onClick={() => adoptChild(actor.id)}
+                      className="flex items-center gap-1.5 rounded-xl bg-white/5 px-2 py-1.5 text-left text-[11px] font-semibold transition hover:bg-white/15 cursor-pointer"
+                    >
+                      <span>👶</span>
+                      <span className="flex-1">Adopt a Child</span>
+                      <span className="text-[9px] text-white/40">₦{ADOPTION_COST.toLocaleString()}</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="mt-2 flex flex-col gap-1">
               {socialActions.map((def) => {
                 const need = def.social?.requiresRelationship;
