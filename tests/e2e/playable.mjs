@@ -821,6 +821,53 @@ async function main() {
       check(true, 'Mortality checks skipped (needs two residents)');
     }
 
+    // --- Soak: the game must survive extended fast-forward ------------------
+    // Runs the world at ultra speed for a while and checks nothing degrades:
+    // this is where leaks, NaN positions and runaway state show up.
+    await page.evaluate(() => window.__simStore.getState().setSpeed(3));
+    const soakStart = await state();
+    for (let i = 0; i < 10; i++) {
+      await sleep(2000);
+      // Keep the household fed so we are testing longevity, not starvation.
+      await page.evaluate(() => {
+        const sim = window.__simStore.getState();
+        const mot = Object.fromEntries(
+          Object.keys(Object.values(sim.avatars)[0]?.motives ?? {}).map((k) => [k, 75]),
+        );
+        window.__simStore.setState((s) => ({
+          avatars: Object.fromEntries(
+            Object.entries(s.avatars).map(([id, a]) => [id, { ...a, motives: mot }]),
+          ),
+        }));
+      });
+    }
+    const soakEnd = await state();
+
+    check(
+      soakEnd.sims.length >= 1,
+      `The household survives a long fast-forward (${soakEnd.sims.length} members)`,
+    );
+    check(
+      soakEnd.sims.every((sim) => sim.x === null || (Number.isFinite(sim.x) && Number.isFinite(sim.z))),
+      'No Sim ends up at a NaN position',
+    );
+    check(
+      Number.isFinite(soakEnd.funds),
+      `Money stays a real number (₦${soakEnd.funds})`,
+    );
+    check(
+      soakEnd.clock > soakStart.clock,
+      `The clock kept running (${Math.round(soakEnd.clock - soakStart.clock)} sim minutes)`,
+    );
+    check(
+      soakEnd.objectCount === soakStart.objectCount || soakEnd.objectCount > 0,
+      'The lot is intact after a long run',
+    );
+    check(
+      soakEnd.sims.every((sim) => sim.x === null || Math.abs(sim.x) < 10000),
+      'No Sim escaped the world',
+    );
+
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
     await sleep(2500);

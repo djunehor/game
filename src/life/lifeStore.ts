@@ -176,6 +176,9 @@ function starterLot(plot: LotLayout): PlacedObject[] {
     ['coffee_table', plot.originX + 11, plot.originZ + 7.6, 0],
     ['plant', plot.originX + 19.2, plot.originZ + 6.4, 0],
     ['floor_lamp', plot.originX + 5.6, plot.originZ + 6.4, 0],
+    ['rug', plot.originX + 8, plot.originZ + 8.8, 0],
+    ['armchair', plot.originX + 6.5, plot.originZ + 9.5, 1],
+    ['painting', plot.originX + 12, plot.originZ + 5.4, 0],
     // Kitchen / dining — against the back wall.
     ['fridge', plot.originX + 6.2, plot.originZ + 13.2, 0],
     ['stove', plot.originX + 8.4, plot.originZ + 13.2, 0],

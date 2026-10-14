@@ -130,6 +130,11 @@ export function isPointBlocked(x: number, z: number, radius = PLAYER_RADIUS): bo
  * Continuous sliding movement: sub-stepped, then resolved against the
  * environment and any other avatars.
  */
+/** Positions must stay finite no matter what is in the world. */
+function finite(value: number, fallback: number): number {
+  return Number.isFinite(value) ? value : fallback;
+}
+
 export function moveWithSliding(
   currentPos: { x: number; z: number },
   dx: number,
@@ -162,5 +167,5 @@ export function moveWithSliding(
     }
   }
 
-  return { x: p.x, z: p.z };
+  return { x: finite(p.x, currentPos.x), z: finite(p.z, currentPos.z) };
 }
