@@ -9,7 +9,7 @@ import { canPlace, objectPrice, sellValue, snap, type PlacementCheck } from './b
 import { CAREERS, LIFE_STAGES } from './content';
 import { completeShift, isWorkDay, missShift, shiftFor } from './careers';
 import { interactionsForLot, regionLabelAt } from './objects';
-import { loadHousehold, saveHousehold } from './persistence';
+import { loadHousehold, saveHousehold, SAVE_VERSION } from './persistence';
 import {
   createStarterLot,
   detectRegions,
@@ -220,6 +220,7 @@ export const useLifeStore = create<LifeState>((set, get) => ({
       }
     }
     const household: Household = {
+      version: SAVE_VERSION,
       name: config.name,
       funds: STARTING_FUNDS,
       sims,
@@ -309,13 +310,13 @@ export const useLifeStore = create<LifeState>((set, get) => ({
 
   regions: () => {
     const { household } = get();
-    if (!household) return [];
+    if (!household?.plot) return [];
     return labelRegions(household.plot, detectRegions(household.plot), household.lot);
   },
 
   findRoomLabel: (worldX, worldZ) => {
     const { household } = get();
-    if (!household) return 'Outside';
+    if (!household?.plot) return 'Outside';
     const regions = get().regions();
     const tx = Math.floor((worldX - household.plot.originX) / household.plot.tileSize);
     const tz = Math.floor((worldZ - household.plot.originZ) / household.plot.tileSize);

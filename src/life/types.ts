@@ -198,6 +198,8 @@ export interface PlacedObject {
 // --- Household / lot --------------------------------------------------------
 
 export interface Household {
+  /** Save-format version; see persistence.ts. */
+  version?: number;
   name: string;
   funds: number;
   sims: Sim[];

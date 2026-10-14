@@ -55,7 +55,7 @@ export function BuildCursor() {
   const paintTile = useLifeStore((s) => s.paintTile);
   const [hoverWall, setHoverWall] = useState<string | null>(null);
 
-  if (mode !== 'build' || !household) return null;
+  if (mode !== 'build' || !household?.plot) return null;
   const plot = household.plot;
 
   const def = placingCatalogId ? CATALOG_BY_ID[placingCatalogId] : null;

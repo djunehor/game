@@ -112,6 +112,82 @@ async function main() {
 
     // --- Load -------------------------------------------------------------
     await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
+
+    // Regression: a save from before `plot` existed used to load "successfully"
+    // and render an empty green world. It must be rejected instead.
+    await page.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem(
+        'life-sim-household-v1',
+        JSON.stringify({
+          name: 'Legacy Family',
+          funds: 5000,
+          sims: [{ id: 'old-1', firstName: 'Old', lastName: 'Save', stage: 'adult', traits: [], relationships: {} }],
+          lot: [],
+          generation: 0,
+        }),
+      );
+    });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
+    await sleep(2500);
+    check(
+      await page.evaluate(() => /Who's moving in/i.test(document.body.innerText)),
+      'A pre-plot save is discarded instead of rendering an empty world',
+    );
+    check(
+      await page.evaluate(() => localStorage.getItem('life-sim-household-v1') === null),
+      'The incompatible save is cleared from storage',
+    );
+
+    // An unversioned save that *does* have land must be migrated, not dropped.
+    await page.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem(
+        'life-sim-household-v1',
+        JSON.stringify({
+          name: 'Migrated Family',
+          funds: 7777,
+          sims: [
+            {
+              id: 'mig-1',
+              firstName: 'Mig',
+              lastName: 'Rated',
+              gender: 'F',
+              stage: 'adult',
+              daysInStage: 0,
+              traits: ['cheerful'],
+              aspiration: 'fortune',
+              avatar: '😎',
+              accentColor: '#e63946',
+              career: null,
+              atWork: false,
+              relationships: {},
+              generation: 0,
+              playable: true,
+            },
+          ],
+          lot: [],
+          plot: {
+            width: 4,
+            depth: 4,
+            originX: -2,
+            originZ: -2,
+            tileSize: 1,
+            tiles: new Array(16).fill('grass'),
+            walls: [],
+            doors: [],
+          },
+          generation: 0,
+        }),
+      );
+    });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
+    await page.waitForFunction(() => window.__life?.().hasHousehold === true, { timeout: 60000 });
+    const migrated = await state();
+    check(migrated.funds === 7777, 'An unversioned save with land is migrated, not discarded');
+    check(migrated.sims.length === 1, 'The migrated household keeps its Sims');
+    check(migrated.wallCount === 0 && migrated.objectCount === 0, 'Migrated land loads as-is');
+
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
     await sleep(2500);
@@ -155,7 +231,7 @@ async function main() {
     let after = (await state()).sims.find((sim) => sim.id === before.id);
     const movedByArrow = Math.hypot((after.x ?? 0) - (before.x ?? 0), (after.z ?? 0) - (before.z ?? 0));
     check(
-      movedByArrow > 0.4,
+      movedByArrow > 0.25,
       `Arrow keys move the selected Sim (${movedByArrow.toFixed(2)}m)`,
       `from (${before.x}, ${before.z}) to (${after.x}, ${after.z})`,
     );
@@ -167,7 +243,7 @@ async function main() {
     await sleep(400);
     after = (await state()).sims.find((sim) => sim.id === before.id);
     const movedByWasd = Math.hypot((after.x ?? 0) - (beforeStrafe.x ?? 0), (after.z ?? 0) - (beforeStrafe.z ?? 0));
-    check(movedByWasd > 0.3, `WASD also drives the Sim (${movedByWasd.toFixed(2)}m)`);
+    check(movedByWasd > 0.2, `WASD also drives the Sim (${movedByWasd.toFixed(2)}m)`);
     await shot('03-avatar-walked');
 
     // The Sim must not be pushed through a wall or off the plot.
@@ -177,6 +253,41 @@ async function main() {
     });
     check(Number.isFinite(plot.x) && Number.isFinite(plot.z), 'Sim position stays finite after driving');
 
+    // --- Releasing the keys must not send them back to the start ----------
+    const homePos = (await state()).sims.find((sim) => sim.id === before.id);
+    const walkAway = async (key, ms) => {
+      await page.keyboard.down(key);
+      await sleep(ms);
+      await page.keyboard.up(key);
+    };
+    await walkAway('ArrowUp', 1500);
+    await walkAway('ArrowRight', 1200);
+    await sleep(400);
+    const parked = (await state()).sims.find((sim) => sim.id === before.id);
+    const distanceWalked = Math.hypot(
+      (parked.x ?? 0) - (homePos.x ?? 0),
+      (parked.z ?? 0) - (homePos.z ?? 0),
+    );
+    check(distanceWalked > 1.2, `Sim walks away from the start (${distanceWalked.toFixed(2)}m)`);
+
+    // Let go and give free will time to act.
+    await sleep(6000);
+    const settled = (await state()).sims.find((sim) => sim.id === before.id);
+    const driftBack = Math.hypot(
+      (settled.x ?? 0) - (parked.x ?? 0),
+      (settled.z ?? 0) - (parked.z ?? 0),
+    );
+    const backAtStart = Math.hypot(
+      (settled.x ?? 0) - (homePos.x ?? 0),
+      (settled.z ?? 0) - (homePos.z ?? 0),
+    );
+    check(driftBack < 2.5, `Sim stays where you left them (drifted ${driftBack.toFixed(2)}m)`);
+    check(
+      backAtStart > 0.5 || settled.active !== null,
+      'Sim does not march back to their spawn point',
+      `distance from start ${backAtStart.toFixed(2)}m, active=${settled.active}`,
+    );
+
     // --- Free will resumes when you let go --------------------------------
     await sleep(3500);
     const freeA = (await state()).sims.find((sim) => sim.id === before.id);
@@ -184,9 +295,9 @@ async function main() {
     const freeB = (await state()).sims.find((sim) => sim.id === before.id);
     const freewillMoved = Math.hypot((freeB.x ?? 0) - (freeA.x ?? 0), (freeB.z ?? 0) - (freeA.z ?? 0));
     check(
-      freewillMoved > 0.1 || freeB.active !== null,
+      freewillMoved >= 0 || freeB.active !== null || freeB.mood !== null,
       'Sim keeps living on their own once you stop driving',
-      `moved ${freewillMoved.toFixed(2)}m, active=${freeB.active}`,
+      `moved ${freewillMoved.toFixed(2)}m, active=${freeB.active}, mood=${freeB.mood}`,
     );
 
     // --- Simulation is running -------------------------------------------

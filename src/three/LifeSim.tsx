@@ -40,12 +40,12 @@ function Plumbob({ simId, selected }: { simId: string; selected: boolean }) {
   useFrame((state, delta) => {
     if (!ref.current) return;
     ref.current.rotation.y += delta * 1.6;
-    ref.current.position.y = 2.75 + Math.sin(state.clock.getElapsedTime() * 2) * 0.06;
+    ref.current.position.y = 2.55 + Math.sin(state.clock.getElapsedTime() * 2) * 0.05;
   });
 
   return (
-    <mesh ref={ref} position={[0, 2.75, 0]} scale={selected ? 1.35 : 1}>
-      <octahedronGeometry args={[0.22, 0]} />
+    <mesh ref={ref} position={[0, 2.55, 0]} scale={selected ? 1.25 : 1}>
+      <octahedronGeometry args={[0.13, 0]} />
       <meshStandardMaterial
         color={moodColor(grade)}
         emissive={moodColor(grade)}
@@ -124,6 +124,10 @@ export function LifeSim({ sim, index }: { sim: Sim; index: number }) {
         pos.current.z = driven.z;
         if (driven.yaw !== undefined) yaw.current = driven.yaw;
       }
+      // Keep the AI destination under our feet, so letting go does not send the
+      // Sim marching back to wherever they were headed before.
+      target.current.copy(pos.current);
+      stuckFrames.current = 0;
       if (!isWalking) setIsWalking(true);
       setRenderPos([pos.current.x, 0, pos.current.z]);
       setRenderYaw(yaw.current);
@@ -149,11 +153,8 @@ export function LifeSim({ sim, index }: { sim: Sim; index: number }) {
       if (moved < speed * dt * 0.25) {
         stuckFrames.current++;
         if (stuckFrames.current > 8) {
-          target.current.set(
-            spawn.x + (Math.random() - 0.5) * 6,
-            0,
-            spawn.z + (Math.random() - 0.5) * 6,
-          );
+          // Blocked: give up on this destination rather than teleport-walking.
+          target.current.copy(pos.current);
           stuckFrames.current = 0;
         }
       } else {

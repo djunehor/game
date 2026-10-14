@@ -10,6 +10,7 @@ import {
   markAvatarDriven,
   updateAvatarCollider,
 } from './collisionStore';
+import { useSimStore } from '../sim/simStore';
 
 // ---------------------------------------------------------------------------
 // You drive the selected Sim.
@@ -30,6 +31,7 @@ export function Player() {
 
   const plot = useLifeStore((s) => s.household?.plot);
   const selectedSimId = useLifeStore((s) => s.selectedSimId);
+  const wasDriving = useRef(false);
 
   useEffect(() => {
     attachInput();
@@ -66,6 +68,17 @@ export function Player() {
     // --- Walk the selected Sim ---------------------------------------------
     const forward = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
     const strafe = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+
+    const driving = Boolean(selectedSimId) && (forward !== 0 || strafe !== 0);
+
+    // On the first frame of taking control, drop whatever the Sim decided to do
+    // on their own — otherwise they finish their errand the moment you let go.
+    if (driving && !wasDriving.current && selectedSimId) {
+      const sim = useSimStore.getState();
+      const avatar = sim.avatars[selectedSimId];
+      if (avatar?.active?.startedBy === 'autonomy') sim.cancel(selectedSimId);
+    }
+    wasDriving.current = driving;
 
     if (selectedSimId && (forward || strafe)) {
       const collider = getAvatarCollider(selectedSimId);
