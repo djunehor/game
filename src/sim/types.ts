@@ -178,6 +178,8 @@ export interface SimAvatar {
   relationships?: Record<string, { friendship: number; romance: number }>;
   /** How many times each action / object has been used. */
   counters?: Record<string, number>;
+  /** When each consequence last happened to this Sim (sim minutes). */
+  consequenceCooldowns?: Record<string, number>;
 }
 
 // --- Clock ------------------------------------------------------------------

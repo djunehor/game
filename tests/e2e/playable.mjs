@@ -516,6 +516,48 @@ async function main() {
       `Aspiration progress is recorded (${Object.keys(progress).join(', ')})`,
     );
 
+    // --- Rock bottom has consequences -------------------------------------
+    const crisis = await page.evaluate(() => {
+      const id = window.__life().selectedSimId;
+      const sim = window.__simStore.getState();
+      window.__simStore.setState((s) => ({
+        avatars: {
+          ...s.avatars,
+          [id]: {
+            ...s.avatars[id],
+            active: null,
+            queue: [],
+            motives: Object.fromEntries(
+              Object.keys(s.avatars[id].motives).map((k) => [k, k === 'energy' ? 0 : 50]),
+            ),
+            consequenceCooldowns: {},
+          },
+        },
+      }));
+      void sim;
+      return id;
+    });
+    await sleep(3500);
+    const afterCrisis = await state();
+    const collapsedSim = afterCrisis.sims.find((sim) => sim.id === crisis);
+    check(
+      (collapsedSim?.mood ?? '') !== '' && afterCrisis.funds >= 0,
+      `A Sim at rock bottom is handled (mood ${collapsedSim?.mood})`,
+    );
+    const crisisRecord = await page.evaluate(
+      (id) => window.__simStore.getState().avatars[id].consequenceCooldowns ?? {},
+      crisis,
+    );
+    check(
+      Object.keys(crisisRecord).length > 0,
+      `Running out of a need triggers a consequence (${Object.keys(crisisRecord).join(', ')})`,
+    );
+    const stillAlive = await page.evaluate((id) => {
+      const a = window.__simStore.getState().avatars[id];
+      return a.motives.energy > 0 && a.moodlets.length > 0;
+    }, crisis);
+    check(stillAlive, 'The collapsed Sim is revived with a moodlet, not left at zero');
+
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
     await sleep(2500);

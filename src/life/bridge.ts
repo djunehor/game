@@ -13,6 +13,7 @@ import {
   type AspirationContext,
 } from './aspirations';
 import { ASPIRATIONS } from './content';
+import { applyConsequenceEffects, pendingConsequence } from './consequences';
 import type { InteractionDef } from '../sim/types';
 
 // ---------------------------------------------------------------------------
@@ -248,6 +249,88 @@ export function evaluateAspirations(): void {
         );
       }
     }
+  }
+}
+
+/**
+ * Rock-bottom consequences. A need left at zero now actually costs the Sim
+ * something instead of merely looking sad.
+ */
+export function evaluateConsequences(): void {
+  const home = useLifeStore.getState().household;
+  if (!home) return;
+  const sim = useSimStore.getState();
+  const now = sim.clock.totalMinutes;
+
+  for (const member of home.sims) {
+    const avatar = sim.avatars[member.id];
+    if (!avatar) continue;
+
+    const consequence = pendingConsequence(
+      avatar.motives,
+      avatar.consequenceCooldowns ?? {},
+      now,
+    );
+    if (!consequence) continue;
+
+    const motives = applyConsequenceEffects(avatar.motives, consequence, applyMotiveDeltas);
+    const moodlet = createMoodlet(
+      consequence.moodlet.id,
+      now,
+      consequence.moodlet.minutes,
+      `consequence:${consequence.id}`,
+    );
+
+    useSimStore.setState((s) => {
+      const target = s.avatars[member.id];
+      if (!target) return s;
+      return {
+        avatars: {
+          ...s.avatars,
+          [member.id]: {
+            ...target,
+            motives,
+            moodlets: moodlet ? addMoodlet(target.moodlets, moodlet) : target.moodlets,
+            consequenceCooldowns: {
+              ...(target.consequenceCooldowns ?? {}),
+              [consequence.id]: now,
+            },
+            // Collapsing ends whatever they were in the middle of.
+            active: consequence.interrupts ? null : target.active,
+          },
+        },
+      };
+    });
+
+    // Being mortified also cools your friendships a little.
+    if (consequence.id === 'accident' || consequence.id === 'lonely_spiral') {
+      for (const other of home.sims) {
+        if (other.id === member.id) continue;
+        const rel = member.relationships[other.id];
+        if (!rel) continue;
+        useLifeStore.setState((s) => {
+          if (!s.household) return s;
+          return {
+            household: {
+              ...s.household,
+              sims: s.household.sims.map((m) =>
+                m.id === member.id
+                  ? {
+                      ...m,
+                      relationships: {
+                        ...m.relationships,
+                        [other.id]: adjustRelationship(rel, { friendship: -4 }),
+                      },
+                    }
+                  : m,
+              ),
+            },
+          };
+        });
+      }
+    }
+
+    useLifeStore.getState().notify(consequence.message(member.firstName), consequence.emoji, 'warning');
   }
 }
 

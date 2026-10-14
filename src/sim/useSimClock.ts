@@ -1,5 +1,11 @@
 import { useEffect } from 'react';
-import { connectSocialOutcomes, evaluateAspirations, syncLifeClock, syncLifeSims } from '../life/bridge';
+import {
+  connectSocialOutcomes,
+  evaluateAspirations,
+  evaluateConsequences,
+  syncLifeClock,
+  syncLifeSims,
+} from '../life/bridge';
 import { useLifeStore } from '../life/lifeStore';
 import { useSimStore } from './simStore';
 
@@ -52,6 +58,7 @@ export function useSimClock(): void {
         if (aspirationAccumulator >= 1) {
           aspirationAccumulator = 0;
           evaluateAspirations();
+          evaluateConsequences();
         }
       }
     };
