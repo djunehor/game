@@ -4,6 +4,7 @@ import { LifeHUD } from './components/LifeHUD';
 import { BuildBuyPanel } from './components/BuildBuyPanel';
 import { ToastContainer } from './components/ToastContainer';
 import { HouseholdMenu } from './components/HouseholdMenu';
+import { RelationshipsPanel } from './components/RelationshipsPanel';
 import { GameCanvas } from './three/GameCanvas';
 import { registerLotInteractions, useLifeStore } from './life/lifeStore';
 import { useSimClock } from './sim/useSimClock';
@@ -40,11 +41,10 @@ export function App() {
     w.__simStore = useSimStore;
     w.__teleport = (simId: string, x: number, z: number) => {
       // Dev-only: place a Sim exactly, so tests can start from open ground.
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      // Their current errand is dropped too, or they would walk straight back.
+      useSimStore.getState().cancel(simId);
       void import('../src/three/collisionStore').then((mod) => {
-        mod.updateAvatarCollider(simId, x, z, 0.45, 0);
-        (w.__teleported as Record<string, { x: number; z: number }> | undefined) ??= {};
-        (w.__teleported as Record<string, { x: number; z: number }>)[simId] = { x, z };
+        mod.forceAvatarPosition(simId, x, z);
       });
     };
     w.__life = () => {
@@ -95,6 +95,7 @@ export function App() {
       <GameCanvas />
       <LifeHUD />
       <HouseholdMenu />
+      <RelationshipsPanel />
       <BuildBuyPanel />
       <ToastContainer />
     </div>

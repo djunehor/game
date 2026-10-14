@@ -83,6 +83,21 @@ export function updateAvatarCollider(
 
 const drivenAt = new Map<string, number>();
 
+// A one-shot authoritative placement. Used by tooling to put a Sim somewhere
+// exactly; the next frame consumes it and the Sim carries on from there.
+const forcedPositions = new Map<string, { x: number; z: number }>();
+
+export function forceAvatarPosition(id: string, x: number, z: number): void {
+  forcedPositions.set(id, { x, z });
+}
+
+export function takeForcedPosition(id: string): { x: number; z: number } | null {
+  const forced = forcedPositions.get(id);
+  if (!forced) return null;
+  forcedPositions.delete(id);
+  return forced;
+}
+
 export function markAvatarDriven(id: string): void {
   drivenAt.set(id, performance.now());
 }

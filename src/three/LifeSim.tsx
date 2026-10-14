@@ -8,6 +8,7 @@ import {
   removeAvatarCollider,
   wasAvatarDrivenRecently,
   getAvatarCollider,
+  takeForcedPosition,
 } from './collisionStore';
 import { useSimStore } from '../sim/simStore';
 import { computeMood } from '../sim/moodlets';
@@ -115,6 +116,16 @@ export function LifeSim({ sim, index }: { sim: Sim; index: number }) {
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
     timeRef.current = state.clock.getElapsedTime();
+
+    // Somebody has placed this Sim exactly — adopt it before anything else.
+    const forced = takeForcedPosition(sim.id);
+    if (forced) {
+      pos.current.x = forced.x;
+      pos.current.z = forced.z;
+      target.current.copy(pos.current);
+      stuckFrames.current = 0;
+      updateAvatarCollider(sim.id, pos.current.x, pos.current.z, 0.45);
+    }
 
     // If the player is walking this Sim, mirror the position they moved them to
     // rather than running our own movement logic.

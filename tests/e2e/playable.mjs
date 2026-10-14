@@ -223,9 +223,10 @@ async function main() {
     await shot('02-moved-in');
 
     // --- Avatar control: arrow keys must move the SELECTED SIM -------------
-    // Stage the Sim on open lawn first: where free will left them is arbitrary,
-    // and a Sim already against a wall would not move no matter how good the
-    // controls are.
+    // Free will is paused for this section, and the Sim is placed on open lawn:
+    // otherwise they wander off mid-measurement, or start against a wall, and
+    // the check measures the wrong thing.
+    await page.evaluate(() => window.__simStore.getState().setAutonomy(false));
     const startSpot = await page.evaluate(() => {
       const plot = window.__lifeStore.getState().household.plot;
       const id = window.__life().selectedSimId;
@@ -257,6 +258,7 @@ async function main() {
     after = (await state()).sims.find((sim) => sim.id === before.id);
     const movedByWasd = Math.hypot((after.x ?? 0) - (beforeStrafe.x ?? 0), (after.z ?? 0) - (beforeStrafe.z ?? 0));
     check(movedByWasd > 0.2, `WASD also drives the Sim (${movedByWasd.toFixed(2)}m)`);
+    await page.evaluate(() => window.__simStore.getState().setAutonomy(true));
     await shot('03-avatar-walked');
 
     // The Sim must not be pushed through a wall or off the plot.
@@ -721,6 +723,34 @@ async function main() {
       return { before, after: window.__lifeStore.getState().household.funds };
     });
     check(audio.after < audio.before, 'Purchases still work with the sound engine active');
+
+    // --- Relationships panel ----------------------------------------------
+    await page.evaluate(() => {
+      // Give the household a second Sim again so there is somebody to list.
+      window.__lifeStore.getState().addSim({
+        firstName: 'Bisi', lastName: 'Okafor', gender: 'F', stage: 'youngAdult',
+        traits: ['neat'], aspiration: 'family', avatar: '🙂', accentColor: '#3a86ff', career: null,
+      });
+    });
+    await sleep(1200);
+    const panelButton = await page.evaluate(() => {
+      const b = [...document.querySelectorAll('button')].find((x) =>
+        (x.getAttribute('aria-label') || '') === 'Family and friends',
+      );
+      if (b) b.click();
+      return Boolean(b);
+    });
+    check(panelButton, 'The relationships panel can be opened');
+    await sleep(600);
+    const panelText = await page.evaluate(() => document.body.innerText);
+    check(/Bisi/.test(panelText), 'The panel lists the other household members');
+    check(/Acquaintance|Friend|Stranger/i.test(panelText), 'It shows how the selected Sim feels about them');
+    const talked = await page.evaluate(() => {
+      const b = [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === 'Talk');
+      if (b) b.click();
+      return window.__life().socialTargetId;
+    });
+    check(Boolean(talked), 'You can start a conversation from the panel');
 
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
