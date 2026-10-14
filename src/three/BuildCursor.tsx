@@ -52,6 +52,7 @@ export function BuildCursor() {
   const placingCatalogId = useLifeStore((s) => s.placingCatalogId);
   const setGhost = useLifeStore((s) => s.setGhost);
   const toggleWall = useLifeStore((s) => s.toggleWall);
+  const toggleDoor = useLifeStore((s) => s.toggleDoor);
   const paintTile = useLifeStore((s) => s.paintTile);
   const [hoverWall, setHoverWall] = useState<string | null>(null);
 
@@ -64,7 +65,7 @@ export function BuildCursor() {
     : null;
   const box = def && ghost ? footprintOf(ghost.x, ghost.z, def.footprint, rotation) : null;
 
-  const wallTarget = ghost && (tool === 'wall' || tool === 'erase')
+  const wallTarget = ghost && (tool === 'wall' || tool === 'door' || tool === 'erase')
     ? nearestWallTarget(plot.originX, plot.originZ, plot.width, plot.depth, ghost.x, ghost.z)
     : null;
 
@@ -85,6 +86,8 @@ export function BuildCursor() {
     if (!ghost) return;
     if (tool === 'wall' && wallTarget) {
       toggleWall(wallTarget.key);
+    } else if (tool === 'door' && wallTarget) {
+      toggleDoor(wallTarget.key);
     } else if (tool === 'erase' && wallTarget) {
       toggleWall(wallTarget.key); // toggling an existing wall removes it
     } else if (tool === 'floor' && tileValid) {
@@ -129,7 +132,7 @@ export function BuildCursor() {
       )}
 
       {/* Wall ghost */}
-      {(tool === 'wall' || tool === 'erase') && wallTarget && (
+      {(tool === 'wall' || tool === 'door' || tool === 'erase') && wallTarget && (
         <mesh position={[wallTarget.x, 1.35, wallTarget.z]}>
           <boxGeometry
             args={
@@ -139,16 +142,28 @@ export function BuildCursor() {
             }
           />
           <meshBasicMaterial
-            color={plot.walls.includes(wallTarget.key) ? '#ef4444' : '#22c55e'}
+            color={
+              tool === 'door'
+                ? '#38bdf8'
+                : plot.walls.includes(wallTarget.key)
+                  ? '#ef4444'
+                  : '#22c55e'
+            }
             transparent
             opacity={0.5}
           />
         </mesh>
       )}
-      {hoverWall && (tool === 'wall' || tool === 'erase') && (
+      {hoverWall && (tool === 'wall' || tool === 'door' || tool === 'erase') && (
         <Html position={[wallTarget?.x ?? 0, 2.9, wallTarget?.z ?? 0]} center distanceFactor={20} zIndexRange={[20, 0]}>
           <div className="pointer-events-none whitespace-nowrap rounded-full bg-slate-950/90 px-2 py-0.5 text-[10px] font-bold text-white shadow">
-            {plot.walls.includes(hoverWall) ? 'Click to remove wall' : 'Click to build wall · ₦30'}
+            {tool === 'door'
+              ? (plot.doors ?? []).includes(hoverWall)
+                ? 'Click to remove door'
+                : 'Click to fit a door · ₦120'
+              : plot.walls.includes(hoverWall)
+                ? 'Click to remove wall'
+                : 'Click to build wall · ₦30'}
           </div>
         </Html>
       )}

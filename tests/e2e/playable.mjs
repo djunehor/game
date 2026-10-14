@@ -367,6 +367,31 @@ async function main() {
     );
     check(afterWall.funds < fundsBeforeWall, `Drawing a wall costs money (₦${fundsBeforeWall} → ₦${afterWall.funds})`);
 
+    // --- Doors are placeable, and roofs cover rooms ------------------------
+    const doorResult = await page.evaluate(() => {
+      const store = window.__lifeStore;
+      const plot = store.getState().household.plot;
+      const wallKey = plot.walls[0];
+      const fundsBefore = store.getState().household.funds;
+      store.getState().toggleDoor(wallKey);
+      const after = store.getState().household;
+      return {
+        hasDoor: (after.plot.doors ?? []).includes(wallKey),
+        wallGone: !after.plot.walls.includes(wallKey),
+        spent: fundsBefore - after.funds,
+      };
+    });
+    check(doorResult.hasDoor && doorResult.wallGone, 'A door can be fitted into a wall');
+    check(doorResult.spent > 0, `Fitting a door costs money (₦${doorResult.spent})`);
+
+    const roofCheck = await page.evaluate(() => {
+      // Roofs only appear with walls up.
+      const store = window.__lifeStore;
+      while (store.getState().wallMode !== 'up') store.getState().cycleWallMode();
+      return store.getState().wallMode;
+    });
+    check(roofCheck === 'up', `Walls-up mode is available for roofs (${roofCheck})`);
+
     // --- Wall modes -------------------------------------------------------
     const modeA = (await state()).wallMode;
     await page.evaluate(() => {

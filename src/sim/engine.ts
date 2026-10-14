@@ -8,8 +8,8 @@ import {
 import { getInteraction } from './interactions';
 import { addMoodlet, createMoodlet, pruneMoodlets } from './moodlets';
 import { applyMotiveDeltas, createInitialMotives, decayMotives } from './motives';
-import { addSkillXp } from './skills';
-import type { InteractionDef, SimAvatar, SkillId } from './types';
+import { addSkillXp, getSkillLevel } from './skills';
+import type { InteractionDef, MotiveId, SimAvatar, SkillId } from './types';
 
 export const RECENT_MEMORY = 4;
 
@@ -148,9 +148,20 @@ function applyCompletion(
   counters[def.object] = (counters[def.object] ?? 0) + 1;
   counters[def.room] = (counters[def.room] ?? 0) + 1;
 
+  // Doing something you are good at pays off: each level of the interaction's
+  // skill improves its effect, so skilling up is worth the time.
+  const skillIds = Object.keys(def.skillXp ?? {}) as SkillId[];
+  const proficiency = skillIds.length
+    ? 1 + getSkillLevel(avatar.skills, skillIds[0]) * 0.06
+    : 1;
+  const scaledDeltas: Partial<Record<MotiveId, number>> = {};
+  for (const [motive, delta] of Object.entries(def.motiveDeltas) as [MotiveId, number][]) {
+    scaledDeltas[motive] = delta > 0 ? Math.round(delta * proficiency) : delta;
+  }
+
   let next: SimAvatar = {
     ...avatar,
-    motives: applyMotiveDeltas(avatar.motives, def.motiveDeltas),
+    motives: applyMotiveDeltas(avatar.motives, scaledDeltas),
     recent: [def.id, ...(avatar.recent ?? []).filter((id) => id !== def.id)].slice(0, RECENT_MEMORY),
     counters,
   };

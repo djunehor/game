@@ -28,7 +28,7 @@ import {
   tileIndex,
   validWallKeys,
 } from '../lot/grid';
-import { WALL_COST, WALL_REFUND, type LotLayout, type LotRegion, type TileKind } from '../lot/types';
+import { DOOR_COST, WALL_COST, WALL_REFUND, type LotLayout, type LotRegion, type TileKind } from '../lot/types';
 import type { CareerId, Household, NewSimConfig, PlacedObject, Sim } from './types';
 
 export type { NewSimConfig };
@@ -44,7 +44,7 @@ export const BILLS_PER_SIM = 40;
 let uidCounter = 0;
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(uidCounter++).toString(36)}`;
 
-export type BuildTool = 'object' | 'wall' | 'floor' | 'erase';
+export type BuildTool = 'object' | 'wall' | 'door' | 'floor' | 'erase';
 
 export type WallMode = 'up' | 'cut' | 'down';
 
@@ -97,6 +97,7 @@ interface LifeState {
   cycleWallMode: () => void;
   setSocialTarget: (id: string | null) => void;
   toggleWall: (key: string) => void;
+  toggleDoor: (key: string) => void;
   paintTile: (x: number, z: number, kind: TileKind) => void;
   /** Cached room detection for the current plot + furniture. */
   regions: () => LotRegion[];
@@ -328,14 +329,52 @@ export const useLifeStore = create<LifeState>((set, get) => ({
     set((s) => ({ wallMode: s.wallMode === 'cut' ? 'up' : s.wallMode === 'up' ? 'down' : 'cut' })),
   setSocialTarget: (id) => set({ socialTargetId: id }),
 
+  toggleDoor: (key) => {
+    const { household } = get();
+    if (!household) return;
+    const plot = household.plot;
+    const doors = plot.doors ?? [];
+
+    // A door replaces the wall in that slot, or is removed if already there.
+    if (doors.includes(key)) {
+      set({
+        household: {
+          ...household,
+          plot: { ...plot, doors: doors.filter((d) => d !== key) },
+          funds: household.funds + Math.round(DOOR_COST * WALL_REFUND),
+        },
+      });
+      return;
+    }
+
+    if (household.funds < DOOR_COST) {
+      get().notify('Not enough money for that door', '💸', 'warning');
+      return;
+    }
+
+    set({
+      household: {
+        ...household,
+        plot: {
+          ...plot,
+          walls: plot.walls.filter((w) => w !== key),
+          doors: [...doors, key],
+        },
+        funds: household.funds - DOOR_COST,
+      },
+    });
+  },
+
   toggleWall: (key) => {
     const { household } = get();
     if (!household) return;
     if (!validWallKeys(household.plot).has(key)) return;
+    // Drawing a wall over a doorway closes it up again.
+    const doors = household.plot.doors ?? [];
     const has = household.plot.walls.includes(key);
     if (has) {
       const walls = household.plot.walls.filter((w) => w !== key);
-      set({ household: { ...household, plot: { ...household.plot, walls }, funds: household.funds + Math.round(WALL_COST * WALL_REFUND) } });
+      set({ household: { ...household, plot: { ...household.plot, walls, doors }, funds: household.funds + Math.round(WALL_COST * WALL_REFUND) } });
       return;
     }
     if (household.funds < WALL_COST) {
@@ -343,7 +382,13 @@ export const useLifeStore = create<LifeState>((set, get) => ({
       return;
     }
     const walls = [...household.plot.walls, key];
-    set({ household: { ...household, plot: { ...household.plot, walls }, funds: household.funds - WALL_COST } });
+    set({
+      household: {
+        ...household,
+        plot: { ...household.plot, walls, doors: doors.filter((d) => d !== key) },
+        funds: household.funds - WALL_COST,
+      },
+    });
   },
 
   paintTile: (x, z, kind) => {

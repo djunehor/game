@@ -81,6 +81,7 @@ export function BuildBuyPanel() {
           {([
             { id: 'object' as const, label: '🛋️ Objects' },
             { id: 'wall' as const, label: '🧱 Walls' },
+            { id: 'door' as const, label: '🚪 Doors' },
             { id: 'floor' as const, label: '🟫 Floors' },
             { id: 'erase' as const, label: '🧽 Remove' },
           ]).map((t) => (
@@ -166,6 +167,7 @@ export function BuildBuyPanel() {
       {tool !== 'object' ? (
         <div className="px-3 py-3 text-[11px] text-white/60">
           {tool === 'wall' && `Click the ground to draw a wall (₦30 each). Walls divide your plot into rooms — the rooms are named after what you put in them.`}
+          {tool === 'door' && `Click a wall segment to fit a door (₦120). Doors separate rooms but let Sims through — without one, a room is sealed.`}
           {tool === 'floor' && `Click tiles to lay flooring (₦45 per tile).`}
           {tool === 'erase' && `Click a wall to knock it down and get half your money back (highlighted in red).`}
         </div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useLifeStore } from '../life/lifeStore';
-import { wallGeometry } from '../lot/grid';
+import { detectRegions, roofSlabs, wallGeometry } from '../lot/grid';
 import { registerStaticBox, unregisterStaticBox } from './collisionStore';
 import type { LotLayout } from '../lot/types';
 
@@ -13,6 +13,49 @@ import type { LotLayout } from '../lot/types';
 export const WALL_HEIGHT = 2.7;
 /** Heights per wall mode — the cutaway keeps Sims visible from any angle. */
 export const WALL_MODE_HEIGHT: Record<string, number> = { up: WALL_HEIGHT, cut: 0.85, down: 0 };
+
+/** Doors are drawn full height even when walls are cut away — they are the way in. */
+function LotDoors({ plot }: { plot: LotLayout }) {
+  const doors = useMemo(
+    () =>
+      (plot.doors ?? [])
+        .map((key) => wallGeometry(plot, key))
+        .filter((d): d is NonNullable<typeof d> => Boolean(d)),
+    [plot],
+  );
+
+  return (
+    <>
+      {doors.map((door) => (
+        <mesh key={door.key} position={[door.x, 1.05, door.z]} castShadow>
+          <boxGeometry
+            args={
+              door.kind === 'h'
+                ? [door.length, 2.1, 0.1]
+                : [0.1, 2.1, door.length]
+            }
+          />
+          <meshStandardMaterial color="#8b5a2b" roughness={0.7} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+/** Flat roofs over every enclosed room — shown only when walls are up. */
+function LotRoofs({ plot }: { plot: LotLayout }) {
+  const slabs = useMemo(() => roofSlabs(plot, detectRegions(plot)), [plot]);
+  return (
+    <>
+      {slabs.map((slab) => (
+        <mesh key={slab.regionId} position={[slab.x, WALL_HEIGHT + 0.15, slab.z]} castShadow receiveShadow>
+          <boxGeometry args={[slab.width, 0.3, slab.depth]} />
+          <meshStandardMaterial color="#7f1d1d" roughness={0.8} />
+        </mesh>
+      ))}
+    </>
+  );
+}
 
 
 export const WALL_THICKNESS = 0.18;
@@ -111,6 +154,8 @@ export function Lot3D() {
       <LotBoundary plot={plot} />
       <LotFloors plot={plot} />
       {height > 0 && <LotWalls plot={plot} height={height} />}
+      <LotDoors plot={plot} />
+      {wallMode === 'up' && <LotRoofs plot={plot} />}
     </group>
   );
 }

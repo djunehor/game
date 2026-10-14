@@ -237,6 +237,43 @@ export function regionAtWorld(
   return regions.find((region) => region.tiles.includes(index)) ?? null;
 }
 
+export interface RoofSlab {
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+  regionId: number;
+}
+
+/** A flat roof over every enclosed region, sized with a small overhang. */
+export function roofSlabs(lot: LotLayout, regions: LotRegion[], overhang = 0.4): RoofSlab[] {
+  return regions
+    .filter((region) => !region.outdoors)
+    .map((region) => {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minZ = Infinity;
+      let maxZ = -Infinity;
+      for (const index of region.tiles) {
+        const x = index % lot.width;
+        const z = Math.floor(index / lot.width);
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+        minZ = Math.min(minZ, z);
+        maxZ = Math.max(maxZ, z);
+      }
+      const width = (maxX - minX + 1) * lot.tileSize + overhang * 2;
+      const depth = (maxZ - minZ + 1) * lot.tileSize + overhang * 2;
+      return {
+        regionId: region.id,
+        x: lot.originX + ((minX + maxX + 1) / 2) * lot.tileSize,
+        z: lot.originZ + ((minZ + maxZ + 1) / 2) * lot.tileSize,
+        width,
+        depth,
+      };
+    });
+}
+
 // --- Costs -----------------------------------------------------------------
 
 export function floorCost(kind: TileKind): number {
