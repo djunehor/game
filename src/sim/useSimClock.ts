@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { connectSocialOutcomes, syncLifeClock, syncLifeSims } from '../life/bridge';
+import { connectSocialOutcomes, evaluateAspirations, syncLifeClock, syncLifeSims } from '../life/bridge';
 import { useLifeStore } from '../life/lifeStore';
 import { useSimStore } from './simStore';
 
@@ -33,6 +33,7 @@ export function useSimClock(): void {
     let frame = 0;
     let last = performance.now();
     let accumulator = 0;
+    let aspirationAccumulator = 0;
 
     const loop = (now: number) => {
       frame = requestAnimationFrame(loop);
@@ -44,7 +45,15 @@ export function useSimClock(): void {
       const step = accumulator;
       accumulator = 0;
       useSimStore.getState().tick(step);
-      if (useLifeStore.getState().household) syncLifeClock();
+      if (useLifeStore.getState().household) {
+        syncLifeClock();
+        // Goals are cheap to check; once a second is plenty.
+        aspirationAccumulator += step;
+        if (aspirationAccumulator >= 1) {
+          aspirationAccumulator = 0;
+          evaluateAspirations();
+        }
+      }
     };
 
     frame = requestAnimationFrame(loop);

@@ -10,6 +10,8 @@ import { allSocialInteractions } from '../sim/interactions';
 import { CAREERS, LIFE_STAGES } from '../life/content';
 import { levelTitle, shiftFor } from '../life/careers';
 import { canUseInteraction, friendshipLabel, relationKindFor, stageProgress } from '../life/aging';
+import { aspirationStatus, type AspirationContext } from '../life/aspirations';
+import { ASPIRATIONS } from '../life/content';
 import { getSkillLevel } from '../sim/skills';
 
 // ---------------------------------------------------------------------------
@@ -51,7 +53,6 @@ export function LifeHUD() {
   const parts = clockParts(clock);
 
   const socialTargetId = useLifeStore((s) => s.socialTargetId);
-  const setSocialTarget = useLifeStore((s) => s.setSocialTarget);
 
   /** Every social action the selected Sim could take right now. */
   const socialActions = useMemo(() => {
@@ -81,6 +82,24 @@ export function LifeHUD() {
 
   const selected = household.sims.find((s) => s.id === selectedSimId) ?? household.sims[0];
   const selectedAvatar = selected ? avatars[selected.id] : undefined;
+  /** The selected Sim's aspiration and how far along they are. */
+  const aspiration = useMemo(() => {
+    if (!household || !selected) return null;
+    const avatar = avatars[selected.id];
+    if (!avatar) return null;
+    const ctx: AspirationContext = {
+      sim: selected,
+      skills: avatar.skills,
+      career: selected.career,
+      counters: avatar.counters ?? {},
+      relationships: Object.values(selected.relationships),
+      ownedCatalogIds: household.lot.map((o) => o.catalogId),
+      lot: household.lot,
+    };
+    return aspirationStatus(selected.aspiration, ctx);
+  }, [household, selected, avatars]);
+  const setSocialTarget = useLifeStore((s) => s.setSocialTarget);
+
   const weekday = parts.weekday;
   const shift = selected?.career ? shiftFor(selected.career, weekday) : null;
   const workedToday = useLifeStore.getState().workedToday[selected?.id ?? ''];
@@ -213,6 +232,49 @@ export function LifeHUD() {
           >
             {workedToday ? 'Shift done today' : onShiftNow ? 'Go to Work' : shift ? `Shift at ${shift.startHour}:00` : 'Day off'}
           </button>
+        </div>
+      )}
+
+      {/* Aspiration tracker */}
+      {aspiration && selected && (
+        <div className="absolute left-3 bottom-44 z-30 w-60 rounded-2xl border border-white/15 bg-slate-950/92 p-2.5 text-white shadow-xl backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span className="text-base">{ASPIRATIONS[aspiration.id].emoji}</span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[11px] font-bold text-gold">
+                {ASPIRATIONS[aspiration.id].label}
+              </div>
+              <div className="text-[9px] text-white/50">
+                {aspiration.fulfilled
+                  ? 'Dream fulfilled 🌟'
+                  : `${aspiration.completed}/${aspiration.total} milestones`}
+              </div>
+            </div>
+          </div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gold transition-all duration-500"
+              style={{ width: `${(aspiration.completed / Math.max(1, aspiration.total)) * 100}%` }}
+            />
+          </div>
+          <div className="mt-2 flex flex-col gap-1">
+            {aspiration.milestones.map((entry) => (
+              <div
+                key={entry.milestone.id}
+                className={`flex items-center gap-1.5 text-[10px] ${
+                  entry.done ? 'text-emerald-300' : 'text-white/60'
+                }`}
+              >
+                <span>{entry.done ? '✅' : entry.milestone.emoji}</span>
+                <span className="flex-1 truncate">{entry.milestone.label}</span>
+                {!entry.done && entry.target > 1 && (
+                  <span className="tabular-nums text-white/40">
+                    {entry.current}/{entry.target}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

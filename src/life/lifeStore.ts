@@ -130,6 +130,9 @@ interface LifeState {
   removeSim: (simId: string) => void;
 
   advanceLifeDay: (dayOffset: number, weekday: number) => void;
+  addFunds: (amount: number) => void;
+  /** Record that a Sim achieved an aspiration milestone. */
+  markMilestone: (simId: string, milestoneId: string) => void;
   notify: (text: string, emoji: string, kind: LifeNotification['kind']) => void;
   dismissNotification: (id: string) => void;
 }
@@ -631,6 +634,29 @@ export const useLifeStore = create<LifeState>((set, get) => ({
       notifications: [...notifications, ...state.notifications].slice(0, 30),
     });
   },
+
+  addFunds: (amount) =>
+    set((s) => ({
+      household: s.household ? { ...s.household, funds: s.household.funds + amount } : s.household,
+    })),
+
+  markMilestone: (simId, milestoneId) =>
+    set((s) => {
+      if (!s.household) return s;
+      return {
+        household: {
+          ...s.household,
+          sims: s.household.sims.map((member) =>
+            member.id === simId
+              ? {
+                  ...member,
+                  aspirationProgress: { ...(member.aspirationProgress ?? {}), [milestoneId]: true },
+                }
+              : member,
+          ),
+        },
+      };
+    }),
 
   notify: (text, emoji, kind) =>
     set((s) => ({

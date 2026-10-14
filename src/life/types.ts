@@ -123,6 +123,12 @@ export interface Sim {
   generation: number;
   /** Player-controlled Sims render a portrait in the HUD. */
   playable: boolean;
+  /** Aspiration milestone ids already achieved. */
+  aspirationProgress?: Record<string, boolean>;
+  /** How many times this Sim has done each thing (keyed by action and object). */
+  counters?: Record<string, number>;
+  /** Their parents, for the family tree. */
+  parentIds?: string[];
 }
 
 // --- Buy mode ---------------------------------------------------------------

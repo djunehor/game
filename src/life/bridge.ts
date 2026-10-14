@@ -1,10 +1,18 @@
 import { useSimStore } from '../sim/simStore';
 import { getInteraction } from '../sim/interactions';
 import { addMoodlet, createMoodlet } from '../sim/moodlets';
+import { addSkillXp } from '../sim/skills';
 import { applyMotiveDeltas } from '../sim/motives';
 import { clockParts } from '../sim/time';
 import { useLifeStore } from './lifeStore';
 import { adjustRelationship } from './aging';
+import {
+  FULFILMENT_REWARD,
+  aspirationStatus,
+  newlyCompletedMilestones,
+  type AspirationContext,
+} from './aspirations';
+import { ASPIRATIONS } from './content';
 import type { InteractionDef } from '../sim/types';
 
 // ---------------------------------------------------------------------------
@@ -155,6 +163,92 @@ export function syncAvatarSocialMeta(): void {
     }
     return changed ? { avatars } : s;
   });
+}
+
+/**
+ * Check every Sim's aspiration against the state of the world and pay out for
+ * anything they have just achieved. Cheap enough to run on a timer.
+ */
+export function evaluateAspirations(): void {
+  const home = useLifeStore.getState().household;
+  if (!home) return;
+  const sim = useSimStore.getState();
+
+  for (const member of home.sims) {
+    const avatar = sim.avatars[member.id];
+    if (!avatar) continue;
+
+    const ctx: AspirationContext = {
+      sim: member,
+      skills: avatar.skills,
+      career: member.career,
+      counters: avatar.counters ?? {},
+      relationships: Object.values(member.relationships),
+      ownedCatalogIds: home.lot.map((o) => o.catalogId),
+      lot: home.lot,
+    };
+
+    const achieved = newlyCompletedMilestones(member.aspiration, ctx);
+    if (achieved.length === 0) continue;
+
+    for (const milestone of achieved) {
+      useLifeStore.getState().markMilestone(member.id, milestone.id);
+
+      const reward = milestone.reward;
+      if (reward.funds) useLifeStore.getState().addFunds(reward.funds);
+
+      if (reward.moodlet) {
+        const fresh = useSimStore.getState().avatars[member.id];
+        if (fresh) {
+          const moodlet = createMoodlet(
+            reward.moodlet.id,
+            useSimStore.getState().clock.totalMinutes,
+            reward.moodlet.minutes,
+            `aspiration:${milestone.id}`,
+          );
+          if (moodlet) {
+            useSimStore.setState((s) => ({
+              avatars: {
+                ...s.avatars,
+                [member.id]: { ...fresh, moodlets: addMoodlet(fresh.moodlets, moodlet) },
+              },
+            }));
+          }
+        }
+      }
+
+      useLifeStore.getState().notify(
+        `${member.firstName}: ${milestone.label}${reward.funds ? ` (+₦${reward.funds.toLocaleString()})` : ''}`,
+        milestone.emoji,
+        'money',
+      );
+    }
+
+    // Whole track complete?
+    const refreshed = useLifeStore.getState().household?.sims.find((s) => s.id === member.id);
+    if (refreshed) {
+      const status = aspirationStatus(member.aspiration, {
+        ...ctx,
+        sim: refreshed,
+      });
+      if (status.fulfilled) {
+        const meta = ASPIRATIONS[member.aspiration];
+        useLifeStore.getState().addFunds(FULFILMENT_REWARD.funds);
+        const bonusXp = 400;
+        useSimStore.setState((s) => {
+          const target = s.avatars[member.id];
+          if (!target) return s;
+          const result = addSkillXp(target.skills, meta.bonusSkill, bonusXp);
+          return { avatars: { ...s.avatars, [member.id]: { ...target, skills: result.skills } } };
+        });
+        useLifeStore.getState().notify(
+          `${member.firstName} fulfilled their dream: ${meta.label}! (+₦${FULFILMENT_REWARD.funds.toLocaleString()})`,
+          '🌟',
+          'birthday',
+        );
+      }
+    }
+  }
 }
 
 /** Trigger day rollovers (ageing, bills, missed shifts) from the sim clock. */

@@ -176,6 +176,8 @@ export interface SimAvatar {
   stage?: string;
   /** This Sim's view of everyone else, supplied by the household layer. */
   relationships?: Record<string, { friendship: number; romance: number }>;
+  /** How many times each action / object has been used. */
+  counters?: Record<string, number>;
 }
 
 // --- Clock ------------------------------------------------------------------

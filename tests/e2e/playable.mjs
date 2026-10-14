@@ -469,6 +469,53 @@ async function main() {
       `A lonely Sim seeks company on their own (doing ${lonely.active})`,
     );
 
+    // --- Aspirations actually pay out -------------------------------------
+    const fundsBeforeGoal = (await state()).funds;
+    const goalResult = await page.evaluate(() => {
+      const id = window.__life().selectedSimId;
+      const allSkills = [
+        'cooking', 'charisma', 'fitness', 'logic', 'creativity', 'cleaning', 'gardening', 'gaming',
+      ];
+      const maxed = Object.fromEntries(allSkills.map((skill) => [skill, { xp: 500000 }]));
+      window.__simStore.setState((s) => ({
+        avatars: { ...s.avatars, [id]: { ...s.avatars[id], skills: maxed } },
+      }));
+      // Also make them everybody's friend, so relationship milestones can land.
+      window.__lifeStore.setState((s) => {
+        if (!s.household) return s;
+        return {
+          household: {
+            ...s.household,
+            sims: s.household.sims.map((m) => ({
+              ...m,
+              relationships: Object.fromEntries(
+                Object.keys(m.relationships).map((other) => [
+                  other,
+                  { friendship: 80, romance: 60, kind: 'bestFriend' },
+                ]),
+              ),
+            })),
+          },
+        };
+      });
+      window.__simStore.getState().setSpeed(3);
+      return id;
+    });
+    await sleep(3500);
+    const afterGoal = await state();
+    check(
+      afterGoal.funds > fundsBeforeGoal,
+      `Reaching a milestone pays out (₦${fundsBeforeGoal} → ₦${afterGoal.funds})`,
+    );
+    const progress = await page.evaluate(
+      (id) => window.__lifeStore.getState().household.sims.find((s) => s.id === id)?.aspirationProgress ?? {},
+      goalResult,
+    );
+    check(
+      Object.keys(progress).length > 0,
+      `Aspiration progress is recorded (${Object.keys(progress).join(', ')})`,
+    );
+
     // --- Persistence ------------------------------------------------------
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
     await sleep(2500);

@@ -141,10 +141,18 @@ function applyCompletion(
   def: InteractionDef,
   now: number,
 ): { avatar: SimAvatar; levelUps: LevelUp[] } {
+  // Tally what actually got done: exact action id, plus the object and room so
+  // goals can be phrased either way ("paint 3 times", "use the easel").
+  const counters: Record<string, number> = { ...(avatar.counters ?? {}) };
+  counters[def.id] = (counters[def.id] ?? 0) + 1;
+  counters[def.object] = (counters[def.object] ?? 0) + 1;
+  counters[def.room] = (counters[def.room] ?? 0) + 1;
+
   let next: SimAvatar = {
     ...avatar,
     motives: applyMotiveDeltas(avatar.motives, def.motiveDeltas),
     recent: [def.id, ...(avatar.recent ?? []).filter((id) => id !== def.id)].slice(0, RECENT_MEMORY),
+    counters,
   };
 
   const levelUps: LevelUp[] = [];
