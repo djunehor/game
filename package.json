@@ -1,37 +1,26 @@
 {
-  "name": "life-sim",
+  "name": "saltline-fps",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "lint": "tsc --noEmit",
+    "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "tsx tests/test-lot-foundation-logic.ts && tsx tests/test-life-build-logic.ts && tsx tests/test-build-completeness-logic.ts && tsx tests/test-life-household-logic.ts && tsx tests/test-household-management-logic.ts && tsx tests/test-family-logic.ts && tsx tests/test-mortality-logic.ts && tsx tests/test-consequences-logic.ts && tsx tests/test-aspirations-logic.ts && tsx tests/test-social-life-logic.ts && tsx tests/test-visitors-logic.ts && tsx tests/test-sim-needs-logic.ts && tsx tests/test-sim-autonomy-logic.ts && tsx tests/test-sim-engine-logic.ts && tsx tests/test-sim-panel-ui.tsx && tsx tests/test-relationships-ui.tsx && tsx tests/test-root-motion.ts && tsx tests/test-sound-engine-logic.ts",
-    "test:e2e": "node tests/e2e/playable.mjs"
+    "test": "vitest run",
+    "lint": "eslint ."
   },
   "dependencies": {
-    "@react-three/drei": "^10.7.9",
-    "@react-three/fiber": "^9.8.1",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "three": "^0.186.1",
-    "zustand": "^5.0.8"
+    "three": "^0.170.0"
   },
   "devDependencies": {
-    "@rolldown/binding-darwin-arm64": "^1.2.13",
-    "@tailwindcss/oxide-darwin-arm64": "^4.3.3",
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^24.19.1",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
-    "lightningcss-darwin-arm64": "^1.33.0",
-    "puppeteer-core": "^25.13.0",
-    "tailwindcss": "^4.3.3",
-    "tsx": "^4.23.15",
-    "typescript": "^6.0.3",
-    "vite": "^8.3.4"
+    "@eslint/js": "^9.14.0",
+    "@types/three": "^0.170.0",
+    "eslint": "^9.14.0",
+    "puppeteer-core": "^25.17.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.13.0",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
   }
 }

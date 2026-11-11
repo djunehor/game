@@ -1,30 +1,217 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0f1a" />
-    <meta
-      name="description"
-      content="A life simulator. Create a household, build their home, and watch them live: needs, moods, skills, careers, ageing and free will. Play free in your browser."
-    />
-    <meta property="og:title" content="Life Sim — Build a Home, Live a Life" />
-    <meta
-      property="og:description"
-      content="Create a household, build the house they live in, and watch them grow up, work and fall in love."
-    />
-    <meta property="og:type" content="website" />
-    <title>Life Sim — Build a Home, Live a Life</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SALTLINE - Cargo Terminal Infiltration</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2300f0ff'/></svg>">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- Post-processing / Rain overlay effect on screen -->
+    <div id="screen-effects">
+      <div id="damage-vignette"></div>
+      <div id="rain-drops-screen"></div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud" class="hidden">
+      <!-- Edge Help Button for Controls -->
+      <button id="btn-controls-help" class="help-badge" title="Operative Controls Guide">?</button>
+
+      <!-- Top Bar: Mission Objectives and Compass -->
+      <header id="hud-header">
+        <div class="hud-panel mission-panel">
+          <div class="panel-tag">MISSION OBJECTIVE</div>
+          <div id="objective-text">DESTROY SECURITY RELAYS (0/3)</div>
+          <div id="sub-objective-text">PATROL ENEMIES REMAINING: 6</div>
+        </div>
+
+        <!-- Interactive Tutorial Banner -->
+        <div id="tutorial-banner" class="tutorial-banner hidden">
+          <div class="tutorial-tag">TRAINING CALIBRATION</div>
+          <div id="tutorial-title" class="tutorial-title">CALIBRATION 1/8: TURN LEFT</div>
+          <div id="tutorial-instruction" class="tutorial-instruction">Orient sensor suite to port-side (left)</div>
+          <div id="tutorial-hint" class="tutorial-hint">Press [ArrowLeft] or Drag Trackpad Left</div>
+          <div id="tutorial-status" class="tutorial-status pending">STATUS: AWAITING INPUT</div>
+        </div>
+
+        <div class="hud-panel radar-panel">
+          <button id="audio-toggle" class="audio-btn" title="Toggle Audio">AUDIO: ON</button>
+          <div class="radar-circle">
+            <div id="radar-sweep"></div>
+            <div id="radar-blips"></div>
+            <div class="radar-player"></div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Center Crosshair and Hit Marker -->
+      <div id="crosshair-container">
+        <div class="crosshair-line top"></div>
+        <div class="crosshair-line bottom"></div>
+        <div class="crosshair-line left"></div>
+        <div class="crosshair-line right"></div>
+        <div class="crosshair-dot"></div>
+        <div id="hit-marker" class="hit-marker hidden"></div>
+      </div>
+
+      <!-- Bottom Bar: Health and Weapon Status -->
+      <footer id="hud-footer">
+        <div class="hud-panel status-panel">
+          <div class="panel-tag">OPERATIVE INTEGRITY</div>
+          <div class="health-bar-container">
+            <div id="health-bar" style="width: 100%;"></div>
+          </div>
+          <div class="health-meta">
+            <span id="health-val">100</span><span class="muted">/100 HP</span>
+          </div>
+        </div>
+
+        <div class="hud-panel weapon-panel">
+          <div class="panel-tag">TACTICAL CARBINE - 5.56MM</div>
+          <div class="ammo-display">
+            <span id="ammo-clip">30</span>
+            <span class="ammo-divider">/</span>
+            <span id="ammo-reserve">120</span>
+          </div>
+          <div id="weapon-status" class="status-ready">READY</div>
+        </div>
+      </footer>
+
+      <!-- Interaction Prompt -->
+      <div id="interaction-prompt" class="hidden">
+        <span class="key-hint">[E]</span> <span id="interaction-label">DESTROY RELAY</span>
+      </div>
+
+      <!-- Mobile Touch Controls -->
+      <div id="mobile-controls">
+        <div id="touch-joystick-zone">
+          <div id="touch-joystick-base">
+            <div id="touch-joystick-thumb"></div>
+          </div>
+        </div>
+        <div id="touch-action-buttons">
+          <button id="btn-touch-ads" class="touch-btn" aria-label="Aim Down Sights">AIM</button>
+          <button id="btn-touch-reload" class="touch-btn" aria-label="Reload Weapon">RELOAD</button>
+          <button id="btn-touch-jump" class="touch-btn" aria-label="Jump">JUMP</button>
+          <button id="btn-touch-fire" class="touch-btn fire-btn" aria-label="Fire Weapon">FIRE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start / Deployment Screen -->
+    <div id="start-screen" class="overlay-modal">
+      <div class="modal-box">
+        <div class="scanline"></div>
+        <div class="classification-tag">CLASSIFIED // MILITARY INTELLIGENCE</div>
+        <h1 class="glitch-title">SALTLINE</h1>
+        <p class="subtitle">TACTICAL INFILTRATION // SECTOR 7 CARGO PORT</p>
+
+        <div class="briefing-box">
+          <p><strong>WEATHER:</strong> Heavy rain. High fog density. Sea level winds.</p>
+          <p><strong>TASK:</strong> Infiltrate the wet container terminal. Destroy 3 autonomous security relays. Eliminate hostile drone ("Gull") and quadruped ("Hound") security units. Reach the extraction zone.</p>
+        </div>
+
+        <div class="controls-guide">
+          <div class="guide-column">
+            <h3>DESKTOP &amp; LAPTOP</h3>
+            <ul>
+              <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>&uarr;</kbd><kbd>&darr;</kbd> - Move</li>
+              <li><kbd>&larr;</kbd><kbd>&rarr;</kbd> / <kbd>MOUSE</kbd> - Turn / Look</li>
+              <li><kbd>LEFT CLICK</kbd> / <kbd>F</kbd> - Shoot</li>
+              <li><kbd>RIGHT CLICK</kbd> / <kbd>Q</kbd> - Aim (ADS)</li>
+              <li><kbd>R</kbd> - Reload</li>
+              <li><kbd>SHIFT</kbd> - Sprint</li>
+              <li><kbd>SPACE</kbd> - Jump</li>
+            </ul>
+          </div>
+          <div class="guide-column">
+            <h3>MOBILE CONTROLS</h3>
+            <ul>
+              <li><strong>Left Stick</strong> - Move</li>
+              <li><strong>Right Area</strong> - Drag to look</li>
+              <li><strong>FIRE</strong> - Shoot weapon</li>
+              <li><strong>AIM</strong> - Toggle optic zoom</li>
+              <li><strong>RELOAD / JUMP</strong> - Action buttons</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="deploy-buttons-row">
+          <button id="btn-deploy" class="btn-primary">DEPLOY DIRECTLY</button>
+          <button id="btn-start-tutorial" class="btn-secondary">START WITH TUTORIAL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls Help Modal Popover -->
+    <div id="controls-modal" class="overlay-modal hidden">
+      <div class="modal-box controls-modal-box">
+        <div class="modal-header-row">
+          <h2 class="controls-modal-title">OPERATIVE CONTROLS</h2>
+          <button id="btn-close-controls" class="close-btn" title="Close Controls">&times;</button>
+        </div>
+        <div class="controls-guide-grid">
+          <div class="ctrl-col">
+            <h3>DESKTOP & LAPTOP</h3>
+            <p><span class="key-badge">W</span> <span class="key-badge">A</span> <span class="key-badge">S</span> <span class="key-badge">D</span> / <span class="key-badge">&uarr;</span> <span class="key-badge">&darr;</span> - Move Direction</p>
+            <p><span class="key-badge">&larr;</span> <span class="key-badge">&rarr;</span> - Turn Camera Left / Right</p>
+            <p><span class="key-badge">Trackpad / Mouse</span> - Drag or Look to Aim</p>
+            <p><span class="key-badge">Left Click</span> / <span class="key-badge">F</span> - Fire Tactical Carbine</p>
+            <p><span class="key-badge">Right Click</span> / <span class="key-badge">Q</span> - Aim Down Sights (ADS)</p>
+            <p><span class="key-badge">R</span> - Reload 30-Round Magazine</p>
+            <p><span class="key-badge">Shift</span> - Tactical Sprint</p>
+            <p><span class="key-badge">Space</span> - Jump</p>
+          </div>
+          <div class="ctrl-col">
+            <h3>MOBILE TOUCH</h3>
+            <p><span class="key-badge">Left Stick</span> - Virtual Joystick Move</p>
+            <p><span class="key-badge">Right Area</span> - Touch Drag Look</p>
+            <p><span class="key-badge">FIRE</span> - Shoot Weapon</p>
+            <p><span class="key-badge">AIM</span> - Toggle Optic Zoom</p>
+            <p><span class="key-badge">RELOAD</span> - Fast Reload</p>
+            <p><span class="key-badge">JUMP</span> - Leap Obstacles</p>
+          </div>
+        </div>
+        <button id="btn-dismiss-controls" class="btn-primary" style="margin-top: 18px;">RESUME MISSION</button>
+      </div>
+    </div>
+
+    <!-- Victory Screen -->
+    <div id="victory-screen" class="overlay-modal hidden">
+      <div class="modal-box victory-box">
+        <h1 class="victory-title">MISSION ACCOMPLISHED</h1>
+        <p class="subtitle">EXTRACTION POINT SECURED</p>
+        <div class="stats-box">
+          <div class="stat-line"><span>RELAYS DESTROYED:</span> <strong id="stat-relays">3/3</strong></div>
+          <div class="stat-line"><span>HOSTILES ELIMINATED:</span> <strong id="stat-enemies">0</strong></div>
+          <div class="stat-line"><span>TIME ELAPSED:</span> <strong id="stat-time">00:00</strong></div>
+          <div class="stat-line"><span>ACCURACY:</span> <strong id="stat-accuracy">0%</strong></div>
+        </div>
+        <button id="btn-restart-victory" class="btn-primary">REDEPLOY</button>
+      </div>
+    </div>
+
+    <!-- Defeat / Game Over Screen -->
+    <div id="defeat-screen" class="overlay-modal hidden">
+      <div class="modal-box defeat-box">
+        <h1 class="defeat-title">OPERATIVE DOWN</h1>
+        <p class="subtitle">SIGNAL LOST IN SECTOR 7</p>
+        <div class="stats-box">
+          <div class="stat-line"><span>RELAYS DESTROYED:</span> <strong id="stat-defeat-relays">0/3</strong></div>
+          <div class="stat-line"><span>HOSTILES ELIMINATED:</span> <strong id="stat-defeat-enemies">0</strong></div>
+          <div class="stat-line"><span>TIME SURVIVED:</span> <strong id="stat-defeat-time">00:00</strong></div>
+        </div>
+        <button id="btn-restart-defeat" class="btn-primary">RETRY MISSION</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>
+
