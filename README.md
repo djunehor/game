@@ -15,7 +15,7 @@ Infiltrate Sector 7—a storm-swept coastal shipping container terminal. Locate 
   - **Gulls:** Aerial quad-rotor combat drones equipped with spotlight tracking, spinning rotors, and laser tracers.
   - **Hounds:** Quadruped robotic ground units with articulated running animations and red scanner sweeps.
 - **Mission Flow:** Multi-phase objective system with real-time radar minimap, security relay sabotage, tactical VTOL dropship extraction, and combat statistics debrief.
-- **Accessibility:** Optional pointer lock, dual keyboard/arrow and trackpad controls, mobile touch joystick support, and an interactive step-by-step tutorial calibration mode.
+- **Accessibility:** Keyboard-first controls with optional trackpad/mouse control (disabled by default so the browser cursor is never hijacked), mobile touch joystick support, and an interactive step-by-step tutorial calibration mode.
 
 ---
 
@@ -23,12 +23,12 @@ Infiltrate Sector 7—a storm-swept coastal shipping container terminal. Locate 
 
 ### Desktop & Laptop
 
-| Action | Primary Input | Secondary / Trackpad |
+| Action | Keyboard Input (Default) | Optional Trackpad / Mouse (When Enabled) |
 |---|---|---|
-| **Move** | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> | <kbd>&uarr;</kbd> <kbd>&larr;</kbd> <kbd>&darr;</kbd> <kbd>&rarr;</kbd> |
-| **Look / Aim** | Mouse Movement | Click & Drag Trackpad / Arrow keys |
-| **Fire Weapon** | <kbd>Left Click</kbd> | <kbd>F</kbd> |
-| **Aim Down Sights (ADS)** | <kbd>Right Click</kbd> (Hold) | <kbd>Q</kbd> (Toggle) |
+| **Move** | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> / <kbd>&uarr;</kbd> <kbd>&darr;</kbd> | — |
+| **Turn / Look** | <kbd>&larr;</kbd> <kbd>&rarr;</kbd> | Click & Drag Trackpad / Mouse |
+| **Fire Weapon** | <kbd>F</kbd> | <kbd>Left Click</kbd> |
+| **Aim Down Sights (ADS)** | <kbd>Q</kbd> (Toggle) | <kbd>Right Click</kbd> (Hold) |
 | **Reload** | <kbd>R</kbd> | — |
 | **Sprint** | <kbd>Shift</kbd> (Hold) | — |
 | **Jump** | <kbd>Space</kbd> | — |

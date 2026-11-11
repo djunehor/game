@@ -35,12 +35,15 @@
           <div class="tutorial-tag">TRAINING CALIBRATION</div>
           <div id="tutorial-title" class="tutorial-title">CALIBRATION 1/8: TURN LEFT</div>
           <div id="tutorial-instruction" class="tutorial-instruction">Orient sensor suite to port-side (left)</div>
-          <div id="tutorial-hint" class="tutorial-hint">Press [ArrowLeft] or Drag Trackpad Left</div>
+          <div id="tutorial-hint" class="tutorial-hint">Press [ArrowLeft]</div>
           <div id="tutorial-status" class="tutorial-status pending">STATUS: AWAITING INPUT</div>
         </div>
 
         <div class="hud-panel radar-panel">
-          <button id="audio-toggle" class="audio-btn" title="Toggle Audio">AUDIO: ON</button>
+          <div class="radar-toggles">
+            <button id="audio-toggle" class="audio-btn" title="Toggle Audio">AUDIO: ON</button>
+            <button id="mouse-toggle" class="audio-btn" title="Toggle Optional Trackpad/Mouse Control">MOUSE: OFF</button>
+          </div>
           <div class="radar-circle">
             <div id="radar-sweep"></div>
             <div id="radar-blips"></div>
@@ -118,27 +121,34 @@
 
         <div class="controls-guide">
           <div class="guide-column">
-            <h3>DESKTOP &amp; LAPTOP</h3>
+            <h3>KEYBOARD CONTROLS</h3>
             <ul>
               <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>&uarr;</kbd><kbd>&darr;</kbd> - Move</li>
-              <li><kbd>&larr;</kbd><kbd>&rarr;</kbd> / <kbd>MOUSE</kbd> - Turn / Look</li>
-              <li><kbd>LEFT CLICK</kbd> / <kbd>F</kbd> - Shoot</li>
-              <li><kbd>RIGHT CLICK</kbd> / <kbd>Q</kbd> - Aim (ADS)</li>
+              <li><kbd>&larr;</kbd><kbd>&rarr;</kbd> - Turn Left / Right</li>
+              <li><kbd>F</kbd> - Shoot</li>
+              <li><kbd>Q</kbd> - Aim (ADS)</li>
               <li><kbd>R</kbd> - Reload</li>
               <li><kbd>SHIFT</kbd> - Sprint</li>
               <li><kbd>SPACE</kbd> - Jump</li>
             </ul>
           </div>
           <div class="guide-column">
-            <h3>MOBILE CONTROLS</h3>
+            <h3>MOBILE &amp; OPTIONAL MOUSE</h3>
             <ul>
-              <li><strong>Left Stick</strong> - Move</li>
-              <li><strong>Right Area</strong> - Drag to look</li>
-              <li><strong>FIRE</strong> - Shoot weapon</li>
-              <li><strong>AIM</strong> - Toggle optic zoom</li>
-              <li><strong>RELOAD / JUMP</strong> - Action buttons</li>
+              <li><strong>Trackpad / Mouse</strong> - Off by default (enable below)</li>
+              <li><strong>Left Stick</strong> - Move (Mobile)</li>
+              <li><strong>Right Area</strong> - Drag to look (Mobile)</li>
+              <li><strong>FIRE / AIM</strong> - Shoot / Optic zoom (Mobile)</li>
+              <li><strong>RELOAD / JUMP</strong> - Action buttons (Mobile)</li>
             </ul>
           </div>
+        </div>
+
+        <div class="mouse-option-row">
+          <label class="mouse-toggle-label" for="chk-mouse-control">
+            <input type="checkbox" id="chk-mouse-control">
+            <span>Enable Trackpad / Mouse Control (Optional &mdash; off by default)</span>
+          </label>
         </div>
 
         <div class="deploy-buttons-row">
@@ -157,27 +167,30 @@
         </div>
         <div class="controls-guide-grid">
           <div class="ctrl-col">
-            <h3>DESKTOP & LAPTOP</h3>
+            <h3>KEYBOARD (DEFAULT)</h3>
             <p><span class="key-badge">W</span> <span class="key-badge">A</span> <span class="key-badge">S</span> <span class="key-badge">D</span> / <span class="key-badge">&uarr;</span> <span class="key-badge">&darr;</span> - Move Direction</p>
             <p><span class="key-badge">&larr;</span> <span class="key-badge">&rarr;</span> - Turn Camera Left / Right</p>
-            <p><span class="key-badge">Trackpad / Mouse</span> - Drag or Look to Aim</p>
-            <p><span class="key-badge">Left Click</span> / <span class="key-badge">F</span> - Fire Tactical Carbine</p>
-            <p><span class="key-badge">Right Click</span> / <span class="key-badge">Q</span> - Aim Down Sights (ADS)</p>
+            <p><span class="key-badge">F</span> - Fire Tactical Carbine</p>
+            <p><span class="key-badge">Q</span> - Aim Down Sights (ADS)</p>
             <p><span class="key-badge">R</span> - Reload 30-Round Magazine</p>
             <p><span class="key-badge">Shift</span> - Tactical Sprint</p>
             <p><span class="key-badge">Space</span> - Jump</p>
           </div>
           <div class="ctrl-col">
-            <h3>MOBILE TOUCH</h3>
+            <h3>OPTIONAL MOUSE &amp; MOBILE</h3>
+            <p><span class="key-badge">Trackpad / Mouse</span> - Drag Look, Left-Click Fire, Right-Click Aim (when enabled)</p>
             <p><span class="key-badge">Left Stick</span> - Virtual Joystick Move</p>
             <p><span class="key-badge">Right Area</span> - Touch Drag Look</p>
-            <p><span class="key-badge">FIRE</span> - Shoot Weapon</p>
-            <p><span class="key-badge">AIM</span> - Toggle Optic Zoom</p>
-            <p><span class="key-badge">RELOAD</span> - Fast Reload</p>
-            <p><span class="key-badge">JUMP</span> - Leap Obstacles</p>
+            <p><span class="key-badge">FIRE / AIM / RELOAD / JUMP</span> - Touch Buttons</p>
           </div>
         </div>
-        <button id="btn-dismiss-controls" class="btn-primary" style="margin-top: 18px;">RESUME MISSION</button>
+        <div class="mouse-option-row" style="margin-top: 14px;">
+          <label class="mouse-toggle-label" for="chk-modal-mouse-control">
+            <input type="checkbox" id="chk-modal-mouse-control">
+            <span>Enable Trackpad / Mouse Control (Optional)</span>
+          </label>
+        </div>
+        <button id="btn-dismiss-controls" class="btn-primary" style="margin-top: 14px;">RESUME MISSION</button>
       </div>
     </div>
 

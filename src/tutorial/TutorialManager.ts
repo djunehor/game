@@ -34,7 +34,7 @@ export class TutorialManager {
       totalSteps: 8,
       title: 'CALIBRATION 1/8: TURN LEFT',
       instruction: 'Orient sensor suite to port-side (left)',
-      keyHint: 'Press [ArrowLeft] or Drag Trackpad Left',
+      keyHint: 'Press [ArrowLeft]',
     },
     {
       id: 'turn_right',
@@ -42,7 +42,7 @@ export class TutorialManager {
       totalSteps: 8,
       title: 'CALIBRATION 2/8: TURN RIGHT',
       instruction: 'Orient sensor suite to starboard-side (right)',
-      keyHint: 'Press [ArrowRight] or Drag Trackpad Right',
+      keyHint: 'Press [ArrowRight]',
     },
     {
       id: 'move_forward',
@@ -66,7 +66,7 @@ export class TutorialManager {
       totalSteps: 8,
       title: 'CALIBRATION 5/8: VERTICAL JUMP',
       instruction: 'Leap upward to clear low obstacles',
-      keyHint: 'Press [Space] or Tap [JUMP]',
+      keyHint: 'Press [Space]',
     },
     {
       id: 'aim_ads',
@@ -74,7 +74,7 @@ export class TutorialManager {
       totalSteps: 8,
       title: 'CALIBRATION 6/8: AIM DOWN SIGHTS (ADS)',
       instruction: 'Raise weapon holographic sight to eye level',
-      keyHint: 'Right-Click or Hold [AIM]',
+      keyHint: 'Press [Q]',
     },
     {
       id: 'fire',
@@ -82,7 +82,7 @@ export class TutorialManager {
       totalSteps: 8,
       title: 'CALIBRATION 7/8: FIRE CARBINE',
       instruction: 'Discharge single round downrange',
-      keyHint: 'Left-Click or Tap [FIRE]',
+      keyHint: 'Press [F]',
     },
     {
       id: 'reload',
@@ -90,7 +90,7 @@ export class TutorialManager {
       totalSteps: 8,
       title: 'CALIBRATION 8/8: CYCLE MAGAZINE',
       instruction: 'Reload tactical 5.56mm magazine',
-      keyHint: 'Press [R] or Tap [RELOAD]',
+      keyHint: 'Press [R]',
     },
   ];
 

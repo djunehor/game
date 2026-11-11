@@ -31,6 +31,7 @@ export class PlayerController {
 
   // Input states
   private keys: Record<string, boolean> = {};
+  public mouseControlEnabled: boolean = false;
   public isMouseDown: boolean = false;
   public isPointerLocked: boolean = false;
   private isDraggingMouse: boolean = false;
@@ -47,9 +48,10 @@ export class PlayerController {
   // Footstep audio timer
   private footstepTimer: number = 0;
 
-  // Hit Marker UI callback & Shot callback
+  // Hit Marker UI callback & Shot/Reload callbacks
   public onHitEnemy: (() => void) | null = null;
   public onShotFired: (() => void) | null = null;
+  public onReloadTriggered: (() => void) | null = null;
 
   constructor(
     camera: THREE.PerspectiveCamera,
@@ -71,12 +73,30 @@ export class PlayerController {
     this.setupMobileInputs();
   }
 
+  public setMouseControlEnabled(enabled: boolean): void {
+    this.mouseControlEnabled = enabled;
+    if (!enabled) {
+      this.isMouseDown = false;
+      this.isDraggingMouse = false;
+      this.pitch = 0;
+      if (document.pointerLockElement === document.body) {
+        document.exitPointerLock?.();
+      }
+    }
+  }
+
+  public toggleMouseControl(): boolean {
+    this.setMouseControlEnabled(!this.mouseControlEnabled);
+    return this.mouseControlEnabled;
+  }
+
   private setupDesktopInputs(): void {
     window.addEventListener('keydown', (e) => {
       this.keys[e.code] = true;
 
-      if (e.code === 'KeyR') {
+      if (e.code === 'KeyR' && this.gameState.phase === 'playing') {
         this.weapon.startReload();
+        this.onReloadTriggered?.();
       }
       if (e.code === 'KeyQ' && !e.repeat && this.gameState.phase === 'playing') {
         this.weapon.toggleAim();
@@ -91,8 +111,19 @@ export class PlayerController {
       this.keys[e.code] = false;
     });
 
+    window.addEventListener('blur', () => {
+      this.keys = {};
+      this.isMouseDown = false;
+      this.isDraggingMouse = false;
+    });
+
     window.addEventListener('mousedown', (e) => {
-      if (this.gameState.phase !== 'playing') return;
+      if (this.gameState.phase !== 'playing' || !this.mouseControlEnabled) return;
+
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('button, input, label, a, .overlay-modal, .hud-panel, .help-badge, .tutorial-banner')) {
+        return;
+      }
 
       this.isDraggingMouse = true;
       this.lastMouseX = e.clientX;
@@ -107,6 +138,7 @@ export class PlayerController {
 
     window.addEventListener('mouseup', (e) => {
       this.isDraggingMouse = false;
+      if (!this.mouseControlEnabled) return;
       if (e.button === 0) {
         this.isMouseDown = false;
       } else if (e.button === 2) {
@@ -114,14 +146,18 @@ export class PlayerController {
       }
     });
 
-    window.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener('contextmenu', (e) => {
+      if (this.mouseControlEnabled && this.gameState.phase === 'playing') {
+        e.preventDefault();
+      }
+    });
 
     document.addEventListener('pointerlockchange', () => {
       this.isPointerLocked = document.pointerLockElement === document.body;
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (this.gameState.phase !== 'playing') return;
+      if (this.gameState.phase !== 'playing' || !this.mouseControlEnabled) return;
 
       const sensitivity = this.weapon.state.isAiming ? 0.0012 : 0.0022;
 

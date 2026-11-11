@@ -138,6 +138,19 @@ class GameApp {
       }
     };
 
+    this.player.onReloadTriggered = () => {
+      if (this.tutorialManager.isActive) {
+        this.tutorialManager.checkProgress(
+          this.player.yaw,
+          { x: this.player.position.x, z: this.player.position.z },
+          this.player.isGrounded,
+          this.weapon.state.isAiming,
+          false,
+          true
+        );
+      }
+    };
+
     this.tutorialManager.initDOM();
   }
 
@@ -173,6 +186,34 @@ class GameApp {
       }
     });
 
+    // Trackpad / Mouse Control Toggle (Disabled by default)
+    const btnMouse = document.getElementById('mouse-toggle');
+    const chkStartMouse = document.getElementById('chk-mouse-control') as HTMLInputElement | null;
+    const chkModalMouse = document.getElementById('chk-modal-mouse-control') as HTMLInputElement | null;
+
+    const syncMouseControlUI = (enabled: boolean) => {
+      this.player.setMouseControlEnabled(enabled);
+      if (btnMouse) {
+        btnMouse.innerText = enabled ? 'MOUSE: ON' : 'MOUSE: OFF';
+      }
+      if (chkStartMouse) {
+        chkStartMouse.checked = enabled;
+      }
+      if (chkModalMouse) {
+        chkModalMouse.checked = enabled;
+      }
+    };
+
+    btnMouse?.addEventListener('click', () => {
+      syncMouseControlUI(!this.player.mouseControlEnabled);
+    });
+    chkStartMouse?.addEventListener('change', () => {
+      syncMouseControlUI(!!chkStartMouse.checked);
+    });
+    chkModalMouse?.addEventListener('change', () => {
+      syncMouseControlUI(!!chkModalMouse.checked);
+    });
+
     // Restart buttons
     document.getElementById('btn-restart-victory')?.addEventListener('click', () => {
       this.restartGame();
@@ -205,15 +246,6 @@ class GameApp {
         x: this.player.position.x,
         z: this.player.position.z,
       });
-    }
-
-    try {
-      const lockPromise = document.body.requestPointerLock?.();
-      if (lockPromise && typeof (lockPromise as unknown as Promise<void>).catch === 'function') {
-        (lockPromise as unknown as Promise<void>).catch(() => {});
-      }
-    } catch {
-      // Ignore pointer lock rejections in automated environments
     }
   }
 
