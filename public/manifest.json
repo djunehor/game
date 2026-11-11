@@ -1,0 +1,18 @@
+{
+  "name": "SALTLINE - Cargo Terminal Infiltration",
+  "short_name": "SALTLINE",
+  "description": "Tactical 3D browser first-person shooter set in a storm-swept coastal shipping container terminal.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#05070a",
+  "theme_color": "#00f0ff",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "128x128 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
